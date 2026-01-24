@@ -31,7 +31,7 @@ pub fn run_command_with_value(
             msg: error.to_string(),
             span: None,
             help: None,
-            inner: vec![*error],
+            inner: vec![error.as_ref().clone()],
         })
     } else {
         Ok(pipeline)

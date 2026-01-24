@@ -250,7 +250,7 @@ fn split_column_helper(
     } else {
         match v {
             Value::Error { error, .. } => {
-                vec![Value::error(*error.clone(), head)]
+                vec![Value::error(error.as_ref().clone(), head)]
             }
             v => {
                 let span = v.span();

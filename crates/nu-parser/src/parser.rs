@@ -591,13 +591,15 @@ fn parse_long_flag(
 
     if arg_contents.starts_with(b"--") {
         // FIXME: only use the first flag you find?
-        let split: Vec<_> = arg_contents.split(|x| *x == b'=').collect();
-        let long_name = String::from_utf8(split[0].into());
+        // Find '=' position to split flag from value without allocating a Vec
+        let eq_pos = arg_contents.iter().position(|&x| x == b'=');
+        let flag_part = eq_pos.map_or(arg_contents, |pos| &arg_contents[..pos]);
+        let long_name = String::from_utf8(flag_part.into());
         if let Ok(long_name) = long_name {
             let long_name = long_name[2..].to_string();
             if let Some(flag) = sig.get_long_flag(&long_name) {
                 if let Some(arg_shape) = &flag.arg {
-                    if split.len() > 1 {
+                    if eq_pos.is_some() {
                         // and we also have the argument
                         let long_name_len = long_name.len();
                         let mut span = arg_span;
@@ -637,7 +639,7 @@ fn parse_long_flag(
                 } else {
                     // A flag with no argument
                     // It can also takes a boolean value like --x=true
-                    if split.len() > 1 {
+                    if eq_pos.is_some() {
                         // and we also have the argument
                         let long_name_len = long_name.len();
                         let mut span = arg_span;
@@ -4132,10 +4134,12 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                             if contents.starts_with(b"--") && contents.len() > 2 {
                                 // Split the long flag from the short flag with the ( character as delimiter.
                                 // The trailing ) is removed further down.
-                                let flags: Vec<_> = contents.split(|x| x == &b'(').collect();
+                                let paren_pos = contents.iter().position(|&x| x == b'(');
+                                let long_flag_part = paren_pos.map_or(&contents[2..], |pos| &contents[2..pos]);
+                                let short_flag_part = paren_pos.map(|pos| &contents[pos + 1..]);
 
-                                let long = String::from_utf8_lossy(&flags[0][2..]).to_string();
-                                let mut variable_name = flags[0][2..].to_vec();
+                                let long = String::from_utf8_lossy(long_flag_part).to_string();
+                                let mut variable_name = long_flag_part.to_vec();
                                 // Replace the '-' in a variable name with '_'
                                 for byte in variable_name.iter_mut() {
                                     if *byte == b'-' {
@@ -4154,7 +4158,7 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                     working_set.add_variable(variable_name, span, Type::Any, false);
 
                                 // If there's no short flag, exit now. Otherwise, parse it.
-                                if flags.len() == 1 {
+                                if short_flag_part.is_none() {
                                     args.push(Arg::Flag {
                                         flag: Flag {
                                             arg: None,
@@ -4168,13 +4172,14 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                         },
                                         type_annotated: false,
                                     });
-                                } else if flags.len() >= 3 {
+                                } else if short_flag_part.is_some_and(|s| s.contains(&b'(')) {
+                                    // More than one '(' means multiple short flag alternatives
                                     working_set.error(ParseError::Expected(
                                         "only one short flag alternative",
                                         span,
                                     ));
                                 } else {
-                                    let short_flag = &flags[1];
+                                    let short_flag = short_flag_part.unwrap();
                                     let short_flag = if !short_flag.starts_with(b"-")
                                         || !short_flag.ends_with(b")")
                                     {
@@ -4190,17 +4195,16 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                     // Note that it is currently possible to make a short flag with non-alphanumeric characters,
                                     // like -).
 
-                                    let short_flag =
-                                        String::from_utf8_lossy(short_flag).to_string();
-                                    let chars: Vec<char> = short_flag.chars().collect();
-
-                                    if chars.len() == 1 {
+                                    let short_flag = String::from_utf8_lossy(short_flag);
+                                    let mut chars = short_flag.chars();
+                                    // Check that there's exactly one char
+                                    if let (Some(first_char), None) = (chars.next(), chars.next()) {
                                         args.push(Arg::Flag {
                                             flag: Flag {
                                                 arg: None,
                                                 desc: String::new(),
                                                 long,
-                                                short: Some(chars[0]),
+                                                short: Some(first_char),
                                                 required: false,
                                                 var_id: Some(var_id),
                                                 default_value: None,
@@ -4216,16 +4220,21 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                             }
                             // Mandatory short flag, e.g. -e (must be one character)
                             else if contents.starts_with(b"-") && contents.len() > 1 {
-                                let short_flag = &contents[1..];
-                                let short_flag = String::from_utf8_lossy(short_flag).to_string();
-                                let chars: Vec<char> = short_flag.chars().collect();
+                                let short_flag_bytes = &contents[1..];
+                                let short_flag = String::from_utf8_lossy(short_flag_bytes);
+                                let mut chars = short_flag.chars();
+                                let first_char = chars.next();
 
-                                if chars.len() > 1 {
+                                if chars.next().is_some() {
+                                    // More than one character
                                     working_set.error(ParseError::Expected("short flag", span));
                                 }
 
+                                // Use the first char (or replacement char if empty, though that shouldn't happen)
+                                let flag_char = first_char.unwrap_or('\u{FFFD}');
+
                                 let mut encoded_var_name = [0u8; 4];
-                                let len = chars[0].encode_utf8(&mut encoded_var_name).len();
+                                let len = flag_char.encode_utf8(&mut encoded_var_name).len();
                                 let variable_name = encoded_var_name[0..len].to_vec();
 
                                 if !is_variable(&variable_name) {
@@ -4243,7 +4252,7 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                         arg: None,
                                         desc: String::new(),
                                         long: String::new(),
-                                        short: Some(chars[0]),
+                                        short: Some(flag_char),
                                         required: false,
                                         var_id: Some(var_id),
                                         default_value: None,
@@ -4268,10 +4277,11 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                     &short_flag[..(short_flag.len() - 1)]
                                 };
 
-                                let short_flag = String::from_utf8_lossy(short_flag).to_string();
-                                let chars: Vec<char> = short_flag.chars().collect();
+                                let short_flag = String::from_utf8_lossy(short_flag);
+                                let mut chars = short_flag.chars();
 
-                                if chars.len() == 1 {
+                                // Check for exactly one character
+                                if let (Some(first_char), None) = (chars.next(), chars.next()) {
                                     match args.last_mut() {
                                         Some(Arg::Flag { flag, .. }) => {
                                             if flag.short.is_some() {
@@ -4280,7 +4290,7 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                                     span,
                                                 ));
                                             } else {
-                                                flag.short = Some(chars[0]);
+                                                flag.short = Some(first_char);
                                             }
                                         }
                                         _ => {
@@ -6022,17 +6032,22 @@ pub fn parse_expression(working_set: &mut StateWorkingSet, spans: &[Span]) -> Ex
         // Check if there is any environment shorthand
         let name = working_set.get_span_contents(spans[pos]);
 
-        let split: Vec<_> = name.splitn(2, |x| *x == b'=').collect();
-        if split.len() != 2 || !is_env_variable_name(split[0]) {
+        // Find '=' position to split env var assignment without allocating a Vec
+        let eq_pos = name.iter().position(|&x| x == b'=');
+        let (env_name, env_value) = match eq_pos {
+            Some(pos) => (&name[..pos], &name[pos + 1..]),
+            None => break,
+        };
+        if !is_env_variable_name(env_name) {
             break;
         }
 
-        let point = split[0].len() + 1;
+        let point = env_name.len() + 1;
         let starting_error_count = working_set.parse_errors.len();
 
         let rhs = if spans[pos].start + point < spans[pos].end {
             let rhs_span = Span::new(spans[pos].start + point, spans[pos].end);
-            if split[1].starts_with(b"$") {
+            if env_value.starts_with(b"$") {
                 parse_dollar_expr(working_set, rhs_span)
             } else {
                 parse_string_strict(working_set, rhs_span)

@@ -62,7 +62,7 @@ impl Command for BytesBuild {
                     output.push(byte);
                 }
                 // Explicitly propagate errors instead of dropping them.
-                Value::Error { error, .. } => return Err(*error),
+                Value::Error { error, .. } => return Err(error.as_ref().clone()),
                 other => {
                     return Err(ShellError::TypeMismatch {
                         err_message: "only binary data arguments are supported".to_string(),

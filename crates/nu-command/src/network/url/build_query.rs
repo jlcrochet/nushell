@@ -70,7 +70,7 @@ impl Command for UrlBuildQuery {
             Value::Record { ref val, .. } => record_to_query_string(val, span, head),
             Value::List { ref vals, .. } => table_to_query_string(vals, span, head),
             // Propagate existing errors
-            Value::Error { error, .. } => Err(*error),
+            Value::Error { error, .. } => Err(error.as_ref().clone()),
             other => Err(ShellError::UnsupportedInput {
                 msg: "Expected a record or table from pipeline".to_string(),
                 input: "value originates from here".into(),

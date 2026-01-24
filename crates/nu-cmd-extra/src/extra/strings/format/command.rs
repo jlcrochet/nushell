@@ -247,7 +247,7 @@ fn format(
                             }
                         }
                     }
-                    Value::Error { error, .. } => return Err(*error.clone()),
+                    Value::Error { error, .. } => return Err(error.as_ref().clone()),
                     _ => {
                         return Err(ShellError::OnlySupportsThisInputType {
                             exp_input_type: "record".to_string(),
@@ -263,7 +263,7 @@ fn format(
         }
         // Unwrapping this ShellError is a bit unfortunate.
         // Ideally, its Span would be preserved.
-        Value::Error { error, .. } => Err(*error),
+        Value::Error { error, .. } => Err(error.as_ref().clone()),
         _ => Err(ShellError::OnlySupportsThisInputType {
             exp_input_type: "record".to_string(),
             wrong_type: data_as_value.get_type().to_string(),

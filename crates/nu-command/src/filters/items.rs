@@ -68,7 +68,7 @@ impl Command for Items {
                             })
                             .into_pipeline_data(head, engine_state.signals().clone()))
                     }
-                    Value::Error { error, .. } => Err(*error),
+                    Value::Error { error, .. } => Err(error.as_ref().clone()),
                     other => Err(ShellError::OnlySupportsThisInputType {
                         exp_input_type: "record".into(),
                         wrong_type: other.get_type().to_string(),

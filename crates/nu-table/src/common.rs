@@ -220,7 +220,7 @@ fn need_footer(config: &Config, count_records: u64) -> bool {
 
 pub fn check_value(value: &Value) -> Result<(), ShellError> {
     match value {
-        Value::Error { error, .. } => Err(*error.clone()),
+        Value::Error { error, .. } => Err(error.as_ref().clone()),
         _ => Ok(()),
     }
 }

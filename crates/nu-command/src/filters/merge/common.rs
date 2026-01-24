@@ -44,7 +44,7 @@ pub(crate) fn typecheck_merge(lhs: &Value, rhs: &Value, head: Span) -> Result<()
         (_, _) if is_list_of_records(lhs) && is_list_of_records(rhs) => Ok(()),
         other => Err(ShellError::OnlySupportsThisInputType {
             exp_input_type: "input and argument to be both record or both table".to_string(),
-            wrong_type: format!("{} and {}", other.0, other.1).to_string(),
+            wrong_type: format!("{} and {}", other.0, other.1),
             dst_span: head,
             src_span: lhs.span(),
         }),
@@ -59,7 +59,7 @@ pub(crate) fn do_merge(
 ) -> Result<Value, ShellError> {
     match (strategy, lhs, rhs) {
         // Propagate errors
-        (_, Value::Error { error, .. }, _) | (_, _, Value::Error { error, .. }) => Err(*error),
+        (_, Value::Error { error, .. }, _) | (_, _, Value::Error { error, .. }) => Err(error.as_ref().clone()),
         // Shallow merge records
         (
             MergeStrategy::Shallow,

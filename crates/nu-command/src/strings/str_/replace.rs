@@ -312,7 +312,7 @@ fn action(
                     true => "(?m)",
                     false => "",
                 };
-                let regex_string = flags.to_string() + find_str;
+                let regex_string = format!("{}{}", flags, find_str);
                 let regex = Regex::new(&regex_string);
 
                 match (regex, replace) {

@@ -36,7 +36,7 @@ fn helper_for_tables(
                         .or_insert_with(|| vec![value.clone()]);
                 }
             }
-            Value::Error { error, .. } => return Err(*error.clone()),
+            Value::Error { error, .. } => return Err(error.as_ref().clone()),
             _ => {
                 //Turns out we are not dealing with a table
                 return mf(values, val.span(), name);

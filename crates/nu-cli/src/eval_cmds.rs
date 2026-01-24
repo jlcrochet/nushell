@@ -87,7 +87,7 @@ pub fn evaluate_commands(
 
     let pipeline_data = pipeline.body;
     if let PipelineData::Value(Value::Error { error, .. }, ..) = pipeline_data {
-        return Err(*error);
+        return Err(error.as_ref().clone());
     }
 
     if let Some(t_mode) = table_mode {

@@ -46,7 +46,7 @@ impl Command for BytesCollect {
                 // Everything is wrapped in Some in case there's a separator, so we can flatten
                 Some(match value {
                     // Explicitly propagate errors instead of dropping them.
-                    Value::Error { error, .. } => Err(*error),
+                    Value::Error { error, .. } => Err(error.as_ref().clone()),
                     Value::Binary { val, .. } => Ok(val),
                     other => Err(ShellError::OnlySupportsThisInputType {
                         exp_input_type: "binary".into(),

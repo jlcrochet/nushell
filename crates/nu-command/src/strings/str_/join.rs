@@ -108,7 +108,7 @@ fn run(
 
                 match value {
                     Value::Error { error, .. } => {
-                        return Err(*error);
+                        return Err(error.as_ref().clone());
                     }
                     Value::Date { val, .. } => {
                         let date_str = if val.year() >= 0 {

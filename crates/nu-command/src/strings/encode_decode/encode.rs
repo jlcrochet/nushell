@@ -119,7 +119,7 @@ fn run(
                     super::encoding::encode(head, encoding, &s, span, ignore_errors)
                         .map(|val| val.into_pipeline_data())
                 }
-                Value::Error { error, .. } => Err(*error),
+                Value::Error { error, .. } => Err(error.as_ref().clone()),
                 _ => Err(ShellError::OnlySupportsThisInputType {
                     exp_input_type: "string".into(),
                     wrong_type: v.get_type().to_string(),

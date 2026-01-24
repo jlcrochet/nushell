@@ -49,7 +49,7 @@ impl Command for Lines {
                     Ok(Value::list(lines, span).into_pipeline_data())
                 }
                 // Propagate existing errors
-                Value::Error { error, .. } => Err(*error),
+                Value::Error { error, .. } => Err(error.as_ref().clone()),
                 value => Err(ShellError::OnlySupportsThisInputType {
                     exp_input_type: "string or byte stream".into(),
                     wrong_type: value.get_type().to_string(),

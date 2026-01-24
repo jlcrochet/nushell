@@ -162,7 +162,7 @@ the most recent `error make`."
 
                 ei.labeled(internal_span, show_labels)
             }
-            (_, Value::Error { error, .. }) => *error,
+            (_, Value::Error { error, .. }) => error.as_ref().clone(),
             _ => todo!(),
         })
     }

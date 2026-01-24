@@ -103,12 +103,14 @@ MessagePack: https://msgpack.org/
     }
 }
 
+use std::sync::Arc;
+
 #[derive(Debug)]
 pub(crate) enum WriteError {
     MaxDepth(Span),
     Rmp(mp::ValueWriteError<io::Error>, Span),
     Io(io::Error, Span),
-    Shell(Box<ShellError>),
+    Shell(Arc<ShellError>),
 }
 
 impl From<Spanned<mp::ValueWriteError<io::Error>>> for WriteError {
@@ -123,15 +125,15 @@ impl From<Spanned<io::Error>> for WriteError {
     }
 }
 
-impl From<Box<ShellError>> for WriteError {
-    fn from(v: Box<ShellError>) -> Self {
+impl From<Arc<ShellError>> for WriteError {
+    fn from(v: Arc<ShellError>) -> Self {
         Self::Shell(v)
     }
 }
 
 impl From<ShellError> for WriteError {
     fn from(value: ShellError) -> Self {
-        Box::new(value).into()
+        Arc::new(value).into()
     }
 }
 
@@ -153,7 +155,7 @@ impl From<WriteError> for ShellError {
                 inner: vec![],
             },
             WriteError::Io(err, span) => ShellError::Io(IoError::new(err, span, None)),
-            WriteError::Shell(err) => *err,
+            WriteError::Shell(err) => err.as_ref().clone(),
         }
     }
 }
@@ -253,10 +255,10 @@ pub(crate) fn write_value(
             if serialize_types {
                 let closure_string = val
                     .coerce_into_string(engine_state, span)
-                    .map_err(|err| WriteError::Shell(Box::new(err)))?;
+                    .map_err(|err| WriteError::Shell(Arc::new(err)))?;
                 mp::write_str(out, &closure_string).err_span(span)?;
             } else {
-                return Err(WriteError::Shell(Box::new(ShellError::UnsupportedInput {
+                return Err(WriteError::Shell(Arc::new(ShellError::UnsupportedInput {
                     msg: "closures are currently not deserializable (use --serialize to serialize as a string)".into(),
                     input: "value originates from here".into(),
                     msg_span: call_span,

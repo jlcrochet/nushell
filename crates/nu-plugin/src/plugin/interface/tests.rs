@@ -652,11 +652,11 @@ fn manager_prepare_pipeline_data_embeds_deserialization_errors_in_streams() -> R
         .expect("prepared pipeline data is empty");
 
     match value {
-        Value::Error { error, .. } => match *error {
+        Value::Error { error, .. } => match error.as_ref() {
             ShellError::CustomValueFailedToDecode {
                 span: error_span, ..
             } => {
-                assert_eq!(span, error_span, "error span not the same as the value's");
+                assert_eq!(span, *error_span, "error span not the same as the value's");
             }
             _ => panic!("expected ShellError::CustomValueFailedToDecode, but got {error:?}"),
         },
@@ -1201,11 +1201,11 @@ fn interface_prepare_pipeline_data_embeds_serialization_errors_in_streams() -> R
         .expect("prepared pipeline data is empty");
 
     match value {
-        Value::Error { error, .. } => match *error {
+        Value::Error { error, .. } => match error.as_ref() {
             ShellError::CustomValueFailedToEncode {
                 span: error_span, ..
             } => {
-                assert_eq!(span, error_span, "error span not the same as the value's");
+                assert_eq!(span, *error_span, "error span not the same as the value's");
             }
             _ => panic!("expected ShellError::CustomValueFailedToEncode, but got {error:?}"),
         },

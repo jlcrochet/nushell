@@ -177,7 +177,7 @@ fn split_row_helper(v: &Value, regex: &Regex, max_split: Option<usize>, name: Sp
     let span = v.span();
     match v {
         Value::Error { error, .. } => {
-            vec![Value::error(*error.clone(), span)]
+            vec![Value::error(error.as_ref().clone(), span)]
         }
         v => {
             let v_span = v.span();

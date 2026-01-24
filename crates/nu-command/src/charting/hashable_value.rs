@@ -103,7 +103,7 @@ impl HashableValue {
             }),
 
             // Explicitly propagate errors instead of dropping them.
-            Value::Error { error, .. } => Err(*error),
+            Value::Error { error, .. } => Err(error.as_ref().clone()),
             _ => Err(ShellError::UnsupportedInput {
                 msg: "input value is not hashable".into(),
                 input: format!("input type: {:?}", value.get_type()),

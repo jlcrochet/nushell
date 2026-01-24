@@ -141,7 +141,7 @@ pub fn value_to_json_value(
         Value::List { vals, .. } => {
             nu_json::Value::Array(json_list(engine_state, vals, call_span, serialize_types)?)
         }
-        Value::Error { error, .. } => return Err(*error.clone()),
+        Value::Error { error, .. } => return Err(error.as_ref().clone()),
         Value::Closure { val, .. } => {
             if serialize_types {
                 let closure_string = val.coerce_into_string(engine_state, span)?;

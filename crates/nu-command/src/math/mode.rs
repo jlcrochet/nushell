@@ -129,7 +129,7 @@ pub fn mode(values: &[Value], span: Span, head: Span) -> Result<Value, ShellErro
                 val.get().to_ne_bytes(),
                 NumberTypes::Filesize,
             )),
-            Value::Error { error, .. } => Err(*error.clone()),
+            Value::Error { error, .. } => Err(error.as_ref().clone()),
             _ => Err(ShellError::UnsupportedInput {
                 msg: "Unable to give a result with this input".to_string(),
                 input: "value originates from here".into(),

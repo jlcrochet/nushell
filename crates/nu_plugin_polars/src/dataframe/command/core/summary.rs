@@ -150,7 +150,7 @@ fn command(
                             })
                         }
                     }
-                    Value::Error { error, .. } => Err(*error.clone()),
+                    Value::Error { error, .. } => Err(error.as_ref().clone()),
                     _ => Err(ShellError::GenericError {
                         error: "Incorrect value for quantile".into(),
                         msg: "value should be a float".into(),

@@ -91,7 +91,7 @@ fn helper(
             }
         }
         Value::Nothing { .. } => toml::Value::String("<Nothing>".to_string()),
-        Value::Error { error, .. } => return Err(*error.clone()),
+        Value::Error { error, .. } => return Err(error.as_ref().clone()),
         Value::Binary { val, .. } => toml::Value::Array(
             val.iter()
                 .map(|x| toml::Value::Integer(*x as i64))
@@ -162,7 +162,7 @@ fn value_to_toml_value(
     match v {
         Value::Record { .. } | Value::Closure { .. } => helper(engine_state, v, serialize_types),
         // Propagate existing errors
-        Value::Error { error, .. } => Err(*error.clone()),
+        Value::Error { error, .. } => Err(error.as_ref().clone()),
         _ => Err(ShellError::UnsupportedInput {
             msg: format!("{:?} is not valid top-level TOML", v.get_type()),
             input: "value originates from here".into(),

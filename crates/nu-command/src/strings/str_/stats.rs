@@ -111,7 +111,7 @@ fn stats(
             let type_ = v.get_type();
             // First, obtain the span. If this fails, propagate the error that results.
             if let Value::Error { error, .. } = v {
-                return Value::error(*error, span);
+                return Value::error(error.as_ref().clone(), span);
             }
             // Now, check if it's a string.
             match v.coerce_into_string() {

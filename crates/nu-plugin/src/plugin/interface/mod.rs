@@ -923,7 +923,7 @@ impl EngineInterface {
         let output = self.eval_closure_with_stream(closure, positional, input, true, false)?;
         // Unwrap an error value
         match output.into_value(closure.span)? {
-            Value::Error { error, .. } => Err(*error),
+            Value::Error { error, .. } => Err(error.as_ref().clone()),
             value => Ok(value),
         }
     }

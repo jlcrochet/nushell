@@ -39,6 +39,7 @@ use std::{
     fmt::{Debug, Display, Write},
     ops::{Bound, ControlFlow},
     path::PathBuf,
+    sync::Arc,
 };
 
 /// Core structured values that pass through the pipeline in Nushell.
@@ -154,7 +155,7 @@ pub enum Value {
     },
     #[non_exhaustive]
     Error {
-        error: Box<ShellError>,
+        error: Arc<ShellError>,
         /// note: spans are being refactored out of Value
         /// please use .span() instead of matching this span value
         #[serde(rename = "span")]
@@ -976,20 +977,34 @@ impl Value {
             Value::Range { val, .. } => val.to_string(),
             Value::String { val, .. } => val.clone(),
             Value::Glob { val, .. } => val.clone(),
-            Value::List { vals: val, .. } => format!(
-                "[{}]",
-                val.iter()
-                    .map(|x| x.to_expanded_string(", ", config))
-                    .collect::<Vec<_>>()
-                    .join(separator)
-            ),
-            Value::Record { val, .. } => format!(
-                "{{{}}}",
-                val.iter()
-                    .map(|(x, y)| format!("{}: {}", x, y.to_expanded_string(", ", config)))
-                    .collect::<Vec<_>>()
-                    .join(separator)
-            ),
+            Value::List { vals: val, .. } => {
+                let mut result = String::from("[");
+                let mut first = true;
+                for x in val.iter() {
+                    if !first {
+                        result.push_str(separator);
+                    }
+                    first = false;
+                    result.push_str(&x.to_expanded_string(", ", config));
+                }
+                result.push(']');
+                result
+            }
+            Value::Record { val, .. } => {
+                let mut result = String::from("{");
+                let mut first = true;
+                for (x, y) in val.iter() {
+                    if !first {
+                        result.push_str(separator);
+                    }
+                    first = false;
+                    result.push_str(x);
+                    result.push_str(": ");
+                    result.push_str(&y.to_expanded_string(", ", config));
+                }
+                result.push('}');
+                result
+            }
             Value::Closure { val, .. } => format!("closure_{}", val.block_id.get()),
             Value::Nothing { .. } => String::new(),
             Value::Error { error, .. } => format!("{error:?}"),
@@ -1055,20 +1070,34 @@ impl Value {
             // give special treatment to the simple types to make them parsable
             Value::String { val, .. } => format!("'{val}'"),
             // recurse back into this function for recursive formatting
-            Value::List { vals: val, .. } => format!(
-                "[{}]",
-                val.iter()
-                    .map(|x| x.to_parsable_string(", ", config))
-                    .collect::<Vec<_>>()
-                    .join(separator)
-            ),
-            Value::Record { val, .. } => format!(
-                "{{{}}}",
-                val.iter()
-                    .map(|(x, y)| format!("{}: {}", x, y.to_parsable_string(", ", config)))
-                    .collect::<Vec<_>>()
-                    .join(separator)
-            ),
+            Value::List { vals: val, .. } => {
+                let mut result = String::from("[");
+                let mut first = true;
+                for x in val.iter() {
+                    if !first {
+                        result.push_str(separator);
+                    }
+                    first = false;
+                    result.push_str(&x.to_parsable_string(", ", config));
+                }
+                result.push(']');
+                result
+            }
+            Value::Record { val, .. } => {
+                let mut result = String::from("{");
+                let mut first = true;
+                for (x, y) in val.iter() {
+                    if !first {
+                        result.push_str(separator);
+                    }
+                    first = false;
+                    result.push_str(x);
+                    result.push_str(": ");
+                    result.push_str(&y.to_parsable_string(", ", config));
+                }
+                result.push('}');
+                result
+            }
             // defer to standard handling for types where standard representation is parsable
             _ => self.to_expanded_string(separator, config),
         }
@@ -1206,7 +1235,7 @@ impl Value {
         let new_val = callback(self.follow_cell_path(cell_path)?.as_ref());
 
         match new_val {
-            Value::Error { error, .. } => Err(*error),
+            Value::Error { error, .. } => Err(error.as_ref().clone()),
             new_val => self.upsert_data_at_cell_path(cell_path, new_val),
         }
     }
@@ -1238,7 +1267,7 @@ impl Value {
                                         record.push(col_name, new_col);
                                     }
                                 }
-                                Value::Error { error, .. } => return Err(*error.clone()),
+                                Value::Error { error, .. } => return Err(error.as_ref().clone()),
                                 v => {
                                     return Err(ShellError::CantFindColumn {
                                         col_name: col_name.clone(),
@@ -1258,7 +1287,7 @@ impl Value {
                             record.push(col_name, new_col);
                         }
                     }
-                    Value::Error { error, .. } => return Err(*error.clone()),
+                    Value::Error { error, .. } => return Err(error.as_ref().clone()),
                     v => {
                         return Err(ShellError::CantFindColumn {
                             col_name: col_name.clone(),
@@ -1283,7 +1312,7 @@ impl Value {
                             vals.push(Value::with_data_at_cell_path(path, new_val)?);
                         }
                     }
-                    Value::Error { error, .. } => return Err(*error.clone()),
+                    Value::Error { error, .. } => return Err(error.as_ref().clone()),
                     _ => {
                         return Err(ShellError::NotAList {
                             dst_span: *span,
@@ -1307,7 +1336,7 @@ impl Value {
         let new_val = callback(self.follow_cell_path(cell_path)?.as_ref());
 
         match new_val {
-            Value::Error { error, .. } => Err(*error),
+            Value::Error { error, .. } => Err(error.as_ref().clone()),
             new_val => self.update_data_at_cell_path(cell_path, new_val),
         }
     }
@@ -1343,7 +1372,7 @@ impl Value {
                                         });
                                     }
                                 }
-                                Value::Error { error, .. } => return Err(*error.clone()),
+                                Value::Error { error, .. } => return Err(error.as_ref().clone()),
                                 v => {
                                     if !*optional {
                                         return Err(ShellError::CantFindColumn {
@@ -1367,7 +1396,7 @@ impl Value {
                             });
                         }
                     }
-                    Value::Error { error, .. } => return Err(*error.clone()),
+                    Value::Error { error, .. } => return Err(error.as_ref().clone()),
                     v => {
                         if !*optional {
                             return Err(ShellError::CantFindColumn {
@@ -1397,7 +1426,7 @@ impl Value {
                             }
                         }
                     }
-                    Value::Error { error, .. } => return Err(*error.clone()),
+                    Value::Error { error, .. } => return Err(error.as_ref().clone()),
                     v => {
                         return Err(ShellError::NotAList {
                             dst_span: *span,
@@ -1624,7 +1653,7 @@ impl Value {
                                         record.push(col_name, new_col);
                                     }
                                 }
-                                Value::Error { error, .. } => return Err(*error.clone()),
+                                Value::Error { error, .. } => return Err(error.as_ref().clone()),
                                 _ => {
                                     return Err(ShellError::UnsupportedInput {
                                         msg: "expected table or record".into(),
@@ -1796,7 +1825,7 @@ impl Value {
     /// Extract [ShellError] from [Value::Error]
     pub fn unwrap_error(self) -> Result<Self, ShellError> {
         match self {
-            Self::Error { error, .. } => Err(*error),
+            Self::Error { error, .. } => Err(error.as_ref().clone()),
             val => Ok(val),
         }
     }
@@ -1941,7 +1970,7 @@ impl Value {
 
     pub fn error(error: ShellError, span: Span) -> Value {
         Value::Error {
-            error: Box::new(error),
+            error: Arc::new(error),
             internal_span: span,
         }
     }
@@ -2194,7 +2223,7 @@ fn get_value_member<'a>(
                     err_message:"Can't access record values with a row index. Try specifying a column name instead".into(),
                     span: *origin_span,
                 }),
-                Value::Error { error, .. } => Err(*error.clone()),
+                Value::Error { error, .. } => Err(error.as_ref().clone()),
                 x => Err(ShellError::IncompatiblePathAccess { type_name: format!("{}", x.get_type()), span: *origin_span }),
             }
         }

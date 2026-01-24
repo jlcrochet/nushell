@@ -323,7 +323,7 @@ impl PipelineData {
     pub fn drain(self) -> Result<(), ShellError> {
         match self {
             Self::Empty => Ok(()),
-            Self::Value(Value::Error { error, .. }, ..) => Err(*error),
+            Self::Value(Value::Error { error, .. }, ..) => Err(error.as_ref().clone()),
             Self::Value(..) => Ok(()),
             Self::ListStream(stream, ..) => stream.drain(),
             Self::ByteStream(stream, ..) => stream.drain(),
@@ -360,7 +360,7 @@ impl PipelineData {
                         .into_iter(),
                     ),
                     // Propagate errors by explicitly matching them before the final case.
-                    Value::Error { error, .. } => return Err(*error),
+                    Value::Error { error, .. } => return Err(error.as_ref().clone()),
                     other => {
                         return Err(ShellError::OnlySupportsThisInputType {
                             exp_input_type: "list, binary, range, or byte stream".into(),
@@ -468,7 +468,7 @@ impl PipelineData {
                         .map(f)
                         .into_pipeline_data(span, signals.clone()),
                     value => match f(value) {
-                        Value::Error { error, .. } => return Err(*error),
+                        Value::Error { error, .. } => return Err(error.as_ref().clone()),
                         v => v.into_pipeline_data(),
                     },
                 };
@@ -721,7 +721,7 @@ impl PipelineData {
             let config = engine_state.get_config();
             for item in self {
                 let mut out = if let Value::Error { error, .. } = item {
-                    return Err(*error);
+                    return Err(error.as_ref().clone());
                 } else {
                     item.to_expanded_string("\n", config)
                 };
@@ -971,7 +971,7 @@ fn value_to_bytes(value: Value) -> Result<Vec<u8>, ShellError> {
             val.into_bytes()
         }
         // Propagate errors by explicitly matching them before the final case.
-        Value::Error { error, .. } => return Err(*error),
+        Value::Error { error, .. } => return Err(error.as_ref().clone()),
         value => value.coerce_into_string()?.into_bytes(),
     };
     Ok(bytes)

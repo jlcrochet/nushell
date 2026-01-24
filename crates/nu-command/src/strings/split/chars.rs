@@ -131,7 +131,7 @@ fn split_chars(
 fn split_chars_helper(v: &Value, name: Span, graphemes: bool) -> Value {
     let span = v.span();
     match v {
-        Value::Error { error, .. } => Value::error(*error.clone(), span),
+        Value::Error { error, .. } => Value::error(error.as_ref().clone(), span),
         v => {
             let v_span = v.span();
             if let Ok(s) = v.as_str() {

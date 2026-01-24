@@ -148,7 +148,7 @@ fn insert(
 
     match input {
         // Propagate errors in the pipeline
-        PipelineData::Value(Value::Error { error, .. }, ..) => Err(*error),
+        PipelineData::Value(Value::Error { error, .. }, ..) => Err(error.as_ref().clone()),
         PipelineData::Value(mut value, metadata) => {
             if let Value::Closure { val, .. } = replacement {
                 match (cell_path.members.first(), &mut value) {

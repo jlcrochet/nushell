@@ -235,7 +235,7 @@ fn guess_width(
 
     let mut input = input.collect_string("", &args.config)?;
     if let Some(rows) = args.num_rows_to_skip {
-        input = input.lines().skip(rows).map(|x| x.to_string()).join("\n");
+        input = input.lines().skip(rows).collect::<Vec<_>>().join("\n");
     }
 
     // Apply box character filtering if requested

@@ -15,6 +15,8 @@ use std::{
     thread,
 };
 
+// Re-use Arc for error storage to avoid expensive clones
+
 /// Check the exit status of each pipeline element.
 ///
 /// This is used to implement pipefail.
@@ -84,7 +86,7 @@ pub fn check_ok(status: ExitStatus, ignore_error: bool, span: Span) -> Result<()
 
 #[derive(Debug)]
 pub enum ExitStatusFuture {
-    Finished(Result<ExitStatus, Box<ShellError>>),
+    Finished(Result<ExitStatus, Arc<ShellError>>),
     Running(Receiver<io::Result<ExitStatus>>),
 }
 
@@ -120,7 +122,7 @@ impl ExitStatusFuture {
                     }),
                 };
 
-                *self = ExitStatusFuture::Finished(code.clone().map_err(Box::new));
+                *self = ExitStatusFuture::Finished(code.clone().map_err(Arc::new));
 
                 code
             }
@@ -152,7 +154,7 @@ impl ExitStatusFuture {
                 };
 
                 if let Some(code) = code.clone().transpose() {
-                    *self = ExitStatusFuture::Finished(code.map_err(Box::new));
+                    *self = ExitStatusFuture::Finished(code.map_err(Arc::new));
                 }
 
                 code

@@ -75,7 +75,7 @@ pub fn nu_value_to_json(
         ),
         nu_protocol::Value::Range { .. } => Value::Null,
         nu_protocol::Value::Error { error, .. } => {
-            return Err(*error.clone());
+            return Err(error.as_ref().clone());
         }
         nu_protocol::Value::Custom { val, .. } => {
             let collected = val.to_base_value(value.span())?;

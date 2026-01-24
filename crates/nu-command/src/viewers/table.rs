@@ -465,7 +465,7 @@ fn handle_table_command(mut input: CmdInput<'_>) -> ShellResult<PipelineData> {
         PipelineData::Value(Value::Error { error, .. }, ..) => {
             // Propagate this error outward, so that it goes to stderr
             // instead of stdout.
-            Err(*error)
+            Err(error.as_ref().clone())
         }
         PipelineData::Value(Value::Custom { val, .. }, ..) => {
             let base_pipeline = val.to_base_value(span)?.into_pipeline_data();

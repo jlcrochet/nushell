@@ -114,7 +114,7 @@ pub fn get_values<'a>(
                     }
                 }
             }
-            Value::Error { error, .. } => return Err(*error.clone()),
+            Value::Error { error, .. } => return Err(error.as_ref().clone()),
             _ => {
                 return Err(ShellError::OnlySupportsThisInputType {
                     exp_input_type: "record or table".into(),
@@ -162,7 +162,7 @@ fn values(
                     .collect::<Vec<_>>()
                     .into_pipeline_data_with_metadata(head, signals, metadata)),
                 // Propagate errors
-                Value::Error { error, .. } => Err(*error),
+                Value::Error { error, .. } => Err(error.as_ref().clone()),
                 other => Err(ShellError::OnlySupportsThisInputType {
                     exp_input_type: "record or table".into(),
                     wrong_type: other.get_type().to_string(),

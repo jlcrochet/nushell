@@ -158,7 +158,7 @@ fn into_record(call: &Call, input: PipelineData) -> Result<PipelineData, ShellEr
                         expected_type = Some(ExpectedType::Pair);
                     }
                     Value::Nothing { .. } => {}
-                    Value::Error { error, .. } => return Err(*error),
+                    Value::Error { error, .. } => return Err(error.as_ref().clone()),
                     _ => {
                         return Err(ShellError::TypeMismatch {
                             err_message: format!(
@@ -178,7 +178,7 @@ fn into_record(call: &Call, input: PipelineData) -> Result<PipelineData, ShellEr
             Ok(Value::record(record, span).into_pipeline_data_with_metadata(metadata))
         }
         PipelineData::Value(Value::Record { .. }, _) => Ok(input),
-        PipelineData::Value(Value::Error { error, .. }, _) => Err(*error),
+        PipelineData::Value(Value::Error { error, .. }, _) => Err(error.as_ref().clone()),
         other => Err(ShellError::TypeMismatch {
             err_message: format!("Can't convert {} to record", other.get_type()),
             span,

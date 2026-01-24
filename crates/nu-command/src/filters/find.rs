@@ -354,7 +354,7 @@ fn get_match_pattern_from_arguments(
             (true, true) => "(?is)", // case insensitive and allow . to match \n
         };
 
-        (flags.to_string() + regex.as_str(), Vec::new())
+        (format!("{}{}", flags, regex), Vec::new())
     } else {
         if dotall {
             return Err(ShellError::IncompatibleParametersSingle {
@@ -380,18 +380,14 @@ fn get_match_pattern_from_arguments(
             })
             .collect::<Vec<String>>();
 
-        let escaped_terms = search_terms
-            .iter()
-            .map(|v| escape(v).into())
-            .collect::<Vec<String>>();
-
-        if let Some(term) = escaped_terms.first() {
-            regex += term;
-        }
-
-        for term in escaped_terms.iter().skip(1) {
-            regex += "|";
-            regex += term;
+        // Build regex directly from search_terms without intermediate Vec
+        let mut first = true;
+        for term in &search_terms {
+            if !first {
+                regex.push('|');
+            }
+            first = false;
+            regex.push_str(&escape(term));
         }
 
         (regex, search_terms)

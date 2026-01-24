@@ -1525,7 +1525,7 @@ impl FromValue for ShellError {
     fn from_value(v: Value) -> Result<Self, ShellError> {
         let from_type = v.get_type();
         match v {
-            Value::Error { error, .. } => Ok(*error),
+            Value::Error { error, .. } => Ok(error.as_ref().clone()),
             // Also let it come from the into_full_value record.
             Value::Record {
                 val, internal_span, ..

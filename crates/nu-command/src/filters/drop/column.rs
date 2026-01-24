@@ -132,7 +132,7 @@ fn drop_cols(
                     Ok(v.into_pipeline_data_with_metadata(metadata))
                 }
                 // Propagate errors
-                Value::Error { error, .. } => Err(*error),
+                Value::Error { error, .. } => Err(error.as_ref().clone()),
                 val => Err(unsupported_value_error(&val, head)),
             }
         }

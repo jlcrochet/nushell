@@ -99,7 +99,7 @@ fn getcol(head: Span, input: PipelineData) -> Result<PipelineData, ShellError> {
                     .map(move |(x, _)| Value::string(x, head))
                     .collect(),
                 // Propagate errors
-                Value::Error { error, .. } => return Err(*error),
+                Value::Error { error, .. } => return Err(error.as_ref().clone()),
                 other => {
                     return Err(ShellError::OnlySupportsThisInputType {
                         exp_input_type: "record or table".into(),

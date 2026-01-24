@@ -132,7 +132,7 @@ fn run(
                         .map(|s| Value::string(s, head)),
                 }
                 .map(|val| val.into_pipeline_data()),
-                Value::Error { error, .. } => Err(*error),
+                Value::Error { error, .. } => Err(error.as_ref().clone()),
                 _ => Err(ShellError::OnlySupportsThisInputType {
                     exp_input_type: "binary".into(),
                     wrong_type: v.get_type().to_string(),

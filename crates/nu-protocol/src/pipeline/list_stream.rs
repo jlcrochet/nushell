@@ -96,7 +96,7 @@ impl ListStream {
     pub fn drain(self) -> Result<(), ShellError> {
         for next in self {
             if let Value::Error { error, .. } = next {
-                return Err(*error);
+                return Err(error.as_ref().clone());
             }
         }
         Ok(())

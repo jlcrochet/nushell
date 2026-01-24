@@ -594,10 +594,13 @@ where
     B: FromValue,
 {
     fn from_value(v: Value) -> std::result::Result<Self, ShellError> {
-        match (A::from_value(v.clone()), B::from_value(v.clone())) {
-            (Ok(a), _) => Ok(Ok(a)),
-            (_, Ok(b)) => Ok(Err(b)),
-            (Err(ea), Err(_)) => Err(ea),
+        // Try A first without cloning; only clone for B if A fails
+        match A::from_value(v.clone()) {
+            Ok(a) => Ok(Ok(a)),
+            Err(ea) => match B::from_value(v) {
+                Ok(b) => Ok(Err(b)),
+                Err(_) => Err(ea),
+            },
         }
     }
 

@@ -161,7 +161,7 @@ impl Command for Last {
                         }
                     }
                     // Propagate errors by explicitly matching them before the final case.
-                    Value::Error { error, .. } => Err(*error),
+                    Value::Error { error, .. } => Err(error.as_ref().clone()),
                     other => Err(ShellError::OnlySupportsThisInputType {
                         exp_input_type: "list, binary or range".into(),
                         wrong_type: other.get_type().to_string(),

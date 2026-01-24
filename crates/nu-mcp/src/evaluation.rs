@@ -197,7 +197,7 @@ fn process_pipeline(
     let mut values = Vec::new();
     for item in pipeline_execution_data.body {
         if let Value::Error { error, .. } = &item {
-            return Err(shell_error_to_mcp_error(*error.clone(), engine_state));
+            return Err(shell_error_to_mcp_error(error.as_ref().clone(), engine_state));
         }
         values.push(item);
     }

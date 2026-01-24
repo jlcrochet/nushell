@@ -637,7 +637,7 @@ mod test {
             Span::test_data(),
         );
         if let Value::Error { error, .. } = actual {
-            if let ShellError::IncorrectValue { msg: e, .. } = *error {
+            if let ShellError::IncorrectValue { msg: e, .. } = error.as_ref() {
                 assert!(
                     e.contains(err_expected),
                     "{e:?} doesn't contain {err_expected}"

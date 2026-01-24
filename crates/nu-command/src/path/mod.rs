@@ -50,7 +50,7 @@ fn handle_invalid_values(rest: Value, name: Span) -> Value {
 
 fn err_from_value(rest: &Value, name: Span) -> ShellError {
     match rest {
-        Value::Error { error, .. } => *error.clone(),
+        Value::Error { error, .. } => error.as_ref().clone(),
         _ => ShellError::OnlySupportsThisInputType {
             exp_input_type: "string, record or list".into(),
             wrong_type: rest.get_type().to_string(),

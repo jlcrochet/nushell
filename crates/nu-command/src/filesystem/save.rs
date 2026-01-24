@@ -394,7 +394,7 @@ fn value_to_bytes(value: Value) -> Result<Vec<u8>, ShellError> {
             Ok(val.into_bytes())
         }
         // Propagate errors by explicitly matching them before the final case.
-        Value::Error { error, .. } => Err(*error),
+        Value::Error { error, .. } => Err(error.as_ref().clone()),
         other => Ok(other.coerce_into_string()?.into_bytes()),
     }
 }

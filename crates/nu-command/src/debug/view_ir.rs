@@ -114,7 +114,7 @@ the declaration may not be in scope.
                     })?
             }
             // Pass through errors
-            Value::Error { error, .. } => return Err(*error),
+            Value::Error { error, .. } => return Err(error.as_ref().clone()),
             _ => {
                 return Err(ShellError::TypeMismatch {
                     err_message: "expected closure, string, or int".into(),

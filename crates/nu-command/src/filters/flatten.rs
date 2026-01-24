@@ -163,11 +163,12 @@ fn flat_value(columns: &[CellPath], item: Value, all: bool) -> Vec<Value> {
                 match value {
                     Value::Record { ref val, .. } => {
                         if need_flatten {
-                            for (col, val) in val.clone().into_owned() {
-                                if out.contains_key(&col) {
-                                    out.insert(format!("{column}_{col}"), val);
+                            // Iterate by reference to avoid cloning the entire record upfront
+                            for (col, inner_val) in val.iter() {
+                                if out.contains_key(col) {
+                                    out.insert(format!("{column}_{col}"), inner_val.clone());
                                 } else {
-                                    out.insert(col, val);
+                                    out.insert(col.clone(), inner_val.clone());
                                 }
                             }
                         } else if out.contains_key(&column) {
@@ -234,16 +235,16 @@ fn flat_value(columns: &[CellPath], item: Value, all: bool) -> Vec<Value> {
             match inner_table {
                 Some(TableInside::Entries(column, entries, parent_column_index)) => {
                     for entry in entries {
-                        let base = out.clone();
                         let mut record = Record::new();
                         let mut index = 0;
-                        for (col, val) in base.into_iter() {
+                        // Iterate by reference to avoid cloning entire IndexMap per entry
+                        for (col, val) in out.iter() {
                             // meet the flattened column, push them to result record first
                             // this can avoid output column order changed.
                             if index == parent_column_index {
                                 record.push(column.clone(), entry.clone());
                             }
-                            record.push(col, val);
+                            record.push(col.clone(), val.clone());
                             index += 1;
                         }
                         // the flattened column may be the last column in the original table.
@@ -259,11 +260,11 @@ fn flat_value(columns: &[CellPath], item: Value, all: bool) -> Vec<Value> {
                     parent_column_index,
                 }) => {
                     for inner_record in records {
-                        let base = out.clone();
                         let mut record = Record::new();
                         let mut index = 0;
 
-                        for (base_col, base_val) in base {
+                        // Iterate by reference to avoid cloning entire IndexMap per record
+                        for (base_col, base_val) in out.iter() {
                             // meet the flattened column, push them to result record first
                             // this can avoid output column order changed.
                             if index == parent_column_index {
@@ -274,12 +275,12 @@ fn flat_value(columns: &[CellPath], item: Value, all: bool) -> Vec<Value> {
                                             val.clone(),
                                         );
                                     } else {
-                                        record.push(col, val.clone());
+                                        record.push(col.clone(), val.clone());
                                     };
                                 }
                             }
 
-                            record.push(base_col, base_val);
+                            record.push(base_col.clone(), base_val.clone());
                             index += 1;
                         }
 

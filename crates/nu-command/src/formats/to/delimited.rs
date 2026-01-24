@@ -38,7 +38,7 @@ fn to_string_tagged_value(
         Value::Date { val, .. } => Ok(val.to_string()),
         Value::Nothing { .. } => Ok(String::new()),
         // Propagate existing errors
-        Value::Error { error, .. } => Err(*error.clone()),
+        Value::Error { error, .. } => Err(error.as_ref().clone()),
         _ => Err(make_cant_convert_error(v, format_name)),
     }
 }
@@ -108,7 +108,7 @@ pub fn to_delimited_data(
     // without consuming it though
     match input {
         PipelineData::Value(Value::List { .. } | Value::Record { .. }, _) => (),
-        PipelineData::Value(Value::Error { error, .. }, _) => return Err(*error),
+        PipelineData::Value(Value::Error { error, .. }, _) => return Err(error.as_ref().clone()),
         PipelineData::Value(other, _) => {
             return Err(make_unsupported_input_error(other.get_type(), head, span));
         }

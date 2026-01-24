@@ -287,7 +287,7 @@ fn convert_to_list(
 
         for (row_num, item) in iter.enumerate() {
             if let Value::Error { error, .. } = item {
-                return Err(*error);
+                return Err(error.as_ref().clone());
             }
 
             let mut row = vec![row_num.to_string()];
@@ -304,7 +304,7 @@ fn convert_to_list(
                     match result {
                         Some(value) => {
                             if let Value::Error { error, .. } = item {
-                                return Err(*error);
+                                return Err(error.as_ref().clone());
                             }
                             row.push(value.to_expanded_string(", ", config));
                         }

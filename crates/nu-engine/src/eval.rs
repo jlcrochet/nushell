@@ -3,7 +3,7 @@ use crate::eval_ir::eval_ir_block;
 use crate::get_full_help;
 use nu_protocol::{
     BlockId, Config, ENV_VARIABLE_ID, IntoPipelineData, PipelineData, PipelineExecutionData,
-    ShellError, Span, Value, VarId,
+    Record, ShellError, Span, Value, VarId,
     ast::{Assignment, Block, Call, Expr, Expression, ExternalArgument, PathMember},
     debugger::DebugContext,
     engine::{Closure, EngineState, Stack},
@@ -110,7 +110,8 @@ pub fn eval_call<D: DebugContext>(
                 let mut found = false;
                 for call_named in call.named_iter() {
                     if let (Some(spanned), Some(short)) = (&call_named.1, named.short) {
-                        if spanned.item == short.to_string() {
+                        // Compare without allocating a String: check length matches and starts with the char
+                        if spanned.item.len() == short.len_utf8() && spanned.item.starts_with(short) {
                             if let Some(arg) = &call_named.2 {
                                 let result = eval_expression::<D>(engine_state, caller_stack, arg)?;
 
@@ -371,17 +372,10 @@ pub fn eval_variable(
         // $env
         ENV_VARIABLE_ID => {
             let env_vars = stack.get_env_vars(engine_state);
-            let env_columns = env_vars.keys();
-            let env_values = env_vars.values();
-
-            let mut pairs = env_columns
-                .map(|x| x.to_string())
-                .zip(env_values.cloned())
-                .collect::<Vec<(String, Value)>>();
-
-            pairs.sort_by(|a, b| a.0.cmp(&b.0));
-
-            Ok(Value::record(pairs.into_iter().collect(), span))
+            // Collect directly into Record (which uses IndexMap) and sort in place
+            let mut record: Record = env_vars.into_iter().collect();
+            record.sort_cols();
+            Ok(Value::record(record, span))
         }
         var_id => stack.get_var(var_id, span),
     }

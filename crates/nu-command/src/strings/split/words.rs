@@ -189,7 +189,7 @@ fn split_words_helper(v: &Value, word_length: Option<usize>, span: Span, graphem
     let v_span = v.span();
 
     match v {
-        Value::Error { error, .. } => Value::error(*error.clone(), v_span),
+        Value::Error { error, .. } => Value::error(error.as_ref().clone(), v_span),
         v => {
             let v_span = v.span();
             if let Ok(s) = v.as_str() {

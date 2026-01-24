@@ -1243,10 +1243,11 @@ pub fn parse_alias(
                 working_set.parse_errors.truncate(starting_error_count);
 
                 let msg = format!("{:?}", expr.expr);
-                let msg_parts: Vec<&str> = msg.split('(').collect();
+                // Get the part before '(' without allocating a Vec
+                let expr_type = msg.split('(').next().unwrap_or(&msg);
 
                 working_set.error(ParseError::CantAliasExpression(
-                    msg_parts[0].to_string(),
+                    expr_type.to_string(),
                     replacement_spans[0],
                 ));
                 return alias_pipeline;

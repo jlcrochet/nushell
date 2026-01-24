@@ -5,6 +5,7 @@ use std::{
     error::Error,
     io::{self, Cursor, ErrorKind},
     string::FromUtf8Error,
+    sync::Arc,
 };
 
 use byteorder::{BigEndian, ReadBytesExt};
@@ -148,18 +149,18 @@ pub(crate) enum ReadError {
     Io(io::Error, Span),
     TypeMismatch(rmp::Marker, Span),
     Utf8(FromUtf8Error, Span),
-    Shell(Box<ShellError>),
+    Shell(Arc<ShellError>),
 }
 
-impl From<Box<ShellError>> for ReadError {
-    fn from(v: Box<ShellError>) -> Self {
+impl From<Arc<ShellError>> for ReadError {
+    fn from(v: Arc<ShellError>) -> Self {
         Self::Shell(v)
     }
 }
 
 impl From<ShellError> for ReadError {
     fn from(value: ShellError) -> Self {
-        Box::new(value).into()
+        Arc::new(value).into()
     }
 }
 
@@ -221,7 +222,7 @@ impl From<ReadError> for ShellError {
                 msg: format!("in MessagePack data: {err}"),
                 span,
             },
-            ReadError::Shell(err) => *err,
+            ReadError::Shell(err) => err.as_ref().clone(),
         }
     }
 }

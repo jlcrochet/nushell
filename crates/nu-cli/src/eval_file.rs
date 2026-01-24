@@ -110,12 +110,12 @@ pub fn evaluate_file(
     }
 
     // Look for blocks whose name starts with "main" and replace it with the filename.
+    let filename_str = source_filename.to_string_lossy();
     for block in working_set.delta.blocks.iter_mut().map(Arc::make_mut) {
         if block.signature.name == "main" {
-            block.signature.name = source_filename.to_string_lossy().to_string();
+            block.signature.name = filename_str.to_string();
         } else if block.signature.name.starts_with("main ") {
-            block.signature.name =
-                source_filename.to_string_lossy().to_string() + " " + &block.signature.name[5..];
+            block.signature.name = format!("{} {}", filename_str, &block.signature.name[5..]);
         }
     }
 

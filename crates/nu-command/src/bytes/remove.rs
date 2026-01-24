@@ -160,10 +160,11 @@ fn remove_impl(input: &[u8], arg: &Arguments, span: Span) -> Value {
         // we have something to remove and remove_all is False.
         // check if the left is positive, if it is not, we don't need to append anything.
         if left > 0 {
-            let mut remain = input[..left as usize].iter().copied().rev().collect();
-            result.append(&mut remain);
+            // Extend directly from reversed iterator instead of collecting to intermediate Vec
+            result.extend(input[..left as usize].iter().copied().rev());
         }
-        result = result.into_iter().rev().collect();
+        // Reverse in place instead of allocating a new Vec
+        result.reverse();
         Value::binary(result, span)
     } else {
         let (mut left, mut right) = (0, arg.pattern.len());
@@ -182,8 +183,8 @@ fn remove_impl(input: &[u8], arg: &Arguments, span: Span) -> Value {
         }
         // append the remaining thing to result, this can happened when
         // we have something to remove and remove_all is False.
-        let mut remain = input[left..].to_vec();
-        result.append(&mut remain);
+        // Extend directly instead of allocating intermediate Vec
+        result.extend_from_slice(&input[left..]);
         Value::binary(result, span)
     }
 }

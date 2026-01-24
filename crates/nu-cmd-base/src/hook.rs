@@ -324,7 +324,7 @@ fn run_hook(
     .body;
 
     if let PipelineData::Value(Value::Error { error, .. }, _) = pipeline_data {
-        return Err(*error);
+        return Err(error.as_ref().clone());
     }
 
     // If all went fine, preserve the environment of the called block

@@ -369,19 +369,12 @@ impl Stack {
 
         for active_overlay in self.active_overlays.iter() {
             if let Some(env_vars) = engine_state.env_vars.get(active_overlay) {
+                let env_hidden = self.env_hidden.get(active_overlay);
                 result.extend(
                     env_vars
                         .iter()
-                        .filter(|(k, _)| {
-                            if let Some(env_hidden) = self.env_hidden.get(active_overlay) {
-                                !env_hidden.contains(*k)
-                            } else {
-                                // nothing has been hidden in this overlay
-                                true
-                            }
-                        })
-                        .map(|(k, v)| (k.clone(), v.clone()))
-                        .collect::<HashMap<String, Value>>(),
+                        .filter(|(k, _)| env_hidden.map_or(true, |hidden| !hidden.contains(*k)))
+                        .map(|(k, v)| (k.clone(), v.clone())),
                 );
             }
         }
@@ -398,7 +391,7 @@ impl Stack {
         for scope in &self.env_vars {
             for active_overlay in self.active_overlays.iter() {
                 if let Some(env_vars) = scope.get(active_overlay) {
-                    result.extend(env_vars.clone());
+                    result.extend(env_vars.iter().map(|(k, v)| (k.clone(), v.clone())));
                 }
             }
         }
@@ -410,11 +403,11 @@ impl Stack {
     pub fn get_stack_overlay_env_vars(&self, overlay_name: &str) -> HashMap<String, Value> {
         let mut result = HashMap::new();
 
-        for scope in &self.env_vars {
-            if let Some(active_overlay) = self.active_overlays.iter().find(|n| n == &overlay_name)
-                && let Some(env_vars) = scope.get(active_overlay)
-            {
-                result.extend(env_vars.clone());
+        if self.active_overlays.iter().any(|n| n == overlay_name) {
+            for scope in &self.env_vars {
+                if let Some(env_vars) = scope.get(overlay_name) {
+                    result.extend(env_vars.iter().map(|(k, v)| (k.clone(), v.clone())));
+                }
             }
         }
 
@@ -458,19 +451,12 @@ impl Stack {
 
         for active_overlay in self.active_overlays.iter() {
             if let Some(env_vars) = engine_state.env_vars.get(active_overlay) {
+                let env_hidden = self.env_hidden.get(active_overlay);
                 result.extend(
                     env_vars
                         .keys()
-                        .filter(|k| {
-                            if let Some(env_hidden) = self.env_hidden.get(active_overlay) {
-                                !env_hidden.contains(*k)
-                            } else {
-                                // nothing has been hidden in this overlay
-                                true
-                            }
-                        })
-                        .cloned()
-                        .collect::<HashSet<String>>(),
+                        .filter(|k| env_hidden.map_or(true, |hidden| !hidden.contains(*k)))
+                        .cloned(),
                 );
             }
         }
@@ -478,7 +464,7 @@ impl Stack {
         for scope in &self.env_vars {
             for active_overlay in self.active_overlays.iter() {
                 if let Some(env_vars) = scope.get(active_overlay) {
-                    result.extend(env_vars.keys().cloned().collect::<HashSet<String>>());
+                    result.extend(env_vars.keys().cloned());
                 }
             }
         }

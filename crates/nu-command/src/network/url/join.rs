@@ -117,7 +117,7 @@ impl Command for UrlJoin {
 
                         url_components?.to_url(span)
                     }
-                    Value::Error { error, .. } => Err(*error),
+                    Value::Error { error, .. } => Err(error.as_ref().clone()),
                     other => Err(ShellError::UnsupportedInput {
                         msg: "Expected a record from pipeline".to_string(),
                         input: "value originates from here".into(),
@@ -184,7 +184,7 @@ impl UrlComponents {
                     port: Some(val),
                     ..self
                 }),
-                Value::Error { error, .. } => Err(*error),
+                Value::Error { error, .. } => Err(error.as_ref().clone()),
                 other => Err(ShellError::IncompatibleParametersSingle {
                     msg: String::from(
                         "Port parameter should be an unsigned int or a string representing it",
@@ -198,7 +198,7 @@ impl UrlComponents {
             let mut qs = match value {
                 Value::Record { ref val, .. } => record_to_query_string(val, value_span, head)?,
                 Value::List { ref vals, .. } => table_to_query_string(vals, value_span, head)?,
-                Value::Error { error, .. } => return Err(*error),
+                Value::Error { error, .. } => return Err(error.as_ref().clone()),
                 other => {
                     return Err(ShellError::IncompatibleParametersSingle {
                         msg: String::from("Key params has to be a record or a table"),

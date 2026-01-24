@@ -72,7 +72,7 @@ impl Command for Complete {
                 Ok(Value::record(record, call.head).into_pipeline_data())
             }
             // bubble up errors from the previous command
-            PipelineData::Value(Value::Error { error, .. }, _) => Err(*error),
+            PipelineData::Value(Value::Error { error, .. }, _) => Err(error.as_ref().clone()),
             _ => Err(ShellError::GenericError {
                 error: "Complete only works with external commands".into(),
                 msg: "complete only works on external commands".into(),

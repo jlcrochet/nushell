@@ -754,7 +754,7 @@ fn eval_instruction<D: DebugContext>(
                 );
                 Ok(Continue)
             } else if let PipelineData::Value(Value::Error { error, .. }, _) = path.body {
-                Err(*error)
+                Err(error.as_ref().clone())
             } else {
                 Err(ShellError::TypeMismatch {
                     err_message: "expected cell path".into(),
@@ -773,7 +773,7 @@ fn eval_instruction<D: DebugContext>(
                 );
                 Ok(Continue)
             } else if let PipelineData::Value(Value::Error { error, .. }, _) = path.body {
-                Err(*error)
+                Err(error.as_ref().clone())
             } else {
                 Err(ShellError::TypeMismatch {
                     err_message: "expected cell path".into(),
@@ -800,7 +800,7 @@ fn eval_instruction<D: DebugContext>(
                 );
                 Ok(Continue)
             } else if let PipelineData::Value(Value::Error { error, .. }, _) = path.body {
-                Err(*error)
+                Err(error.as_ref().clone())
             } else {
                 Err(ShellError::TypeMismatch {
                     err_message: "expected cell path".into(),
@@ -815,7 +815,7 @@ fn eval_instruction<D: DebugContext>(
             let val = match data.body {
                 PipelineData::Value(Value::Bool { val, .. }, _) => val,
                 PipelineData::Value(Value::Error { error, .. }, _) => {
-                    return Err(*error);
+                    return Err(error.as_ref().clone());
                 }
                 _ => {
                     return Err(ShellError::TypeMismatch {
@@ -1010,10 +1010,10 @@ fn binary_op(
 
     // Handle binary op errors early
     if let Value::Error { error, .. } = lhs_val {
-        return Err(*error);
+        return Err(error.as_ref().clone());
     }
     if let Value::Error { error, .. } = rhs_val {
-        return Err(*error);
+        return Err(error.as_ref().clone());
     }
 
     // We only have access to one span here, but the generated code usually adds a `span`
@@ -1289,7 +1289,7 @@ fn gather_arguments(
                     rest_span = Some(rest_span.map_or(spread_span, |s| s.append(spread_span)));
                     always_spread = true;
                 }
-                Value::Error { error, .. } => return Err(*error),
+                Value::Error { error, .. } => return Err(error.as_ref().clone()),
                 _ => return Err(ShellError::CannotSpreadAsList { span: vals.span() }),
             },
             Argument::Flag {
@@ -1359,7 +1359,7 @@ fn gather_arguments(
 /// Type check helper. Produces `CantConvert` error if `val` is not compatible with `ty`.
 fn check_type(val: &Value, ty: &Type) -> Result<(), ShellError> {
     match val {
-        Value::Error { error, .. } => Err(*error.clone()),
+        Value::Error { error, .. } => Err(error.as_ref().clone()),
         _ if val.is_subtype_of(ty) => Ok(()),
         _ => Err(ShellError::CantConvert {
             to_type: ty.to_string(),
@@ -1373,7 +1373,7 @@ fn check_type(val: &Value, ty: &Type) -> Result<(), ShellError> {
 /// Type check and convert value for assignment.
 fn check_assignment_type(val: Value, target_ty: &Type) -> Result<Value, ShellError> {
     match val {
-        Value::Error { error, .. } => Err(*error),
+        Value::Error { error, .. } => Err(error.as_ref().clone()),
         _ if val.is_subtype_of(target_ty) => Ok(val), // No conversion needed, but compatible
         _ => Err(ShellError::CantConvert {
             to_type: target_ty.to_string(),
@@ -1404,7 +1404,7 @@ fn check_input_types(
 
     match input {
         // early return error directly if detected
-        PipelineData::Value(Value::Error { error, .. }, ..) => return Err(*error.clone()),
+        PipelineData::Value(Value::Error { error, .. }, ..) => return Err(error.as_ref().clone()),
         // bypass run-time typechecking for custom types
         PipelineData::Value(Value::Custom { .. }, ..) => return Ok(()),
         _ => (),
@@ -1442,17 +1442,10 @@ fn get_var(ctx: &EvalContext<'_>, var_id: VarId, span: Span) -> Result<Value, Sh
         // $env
         ENV_VARIABLE_ID => {
             let env_vars = ctx.stack.get_env_vars(ctx.engine_state);
-            let env_columns = env_vars.keys();
-            let env_values = env_vars.values();
-
-            let mut pairs = env_columns
-                .map(|x| x.to_string())
-                .zip(env_values.cloned())
-                .collect::<Vec<(String, Value)>>();
-
-            pairs.sort_by(|a, b| a.0.cmp(&b.0));
-
-            Ok(Value::record(pairs.into_iter().collect(), span))
+            // Collect directly into Record (which uses IndexMap) and sort in place
+            let mut record: Record = env_vars.into_iter().collect();
+            record.sort_cols();
+            Ok(Value::record(record, span))
         }
         _ => ctx.stack.get_var(var_id, span).or_else(|err| {
             // $nu is handled by getting constant

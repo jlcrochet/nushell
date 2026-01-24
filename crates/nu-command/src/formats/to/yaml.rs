@@ -148,7 +148,7 @@ pub fn value_to_yaml_value(
             }
         }
         Value::Nothing { .. } => serde_yaml::Value::Null,
-        Value::Error { error, .. } => return Err(*error.clone()),
+        Value::Error { error, .. } => return Err(error.as_ref().clone()),
         Value::Binary { val, .. } => serde_yaml::Value::Sequence(
             val.iter()
                 .map(|x| serde_yaml::Value::Number(serde_yaml::Number::from(*x)))

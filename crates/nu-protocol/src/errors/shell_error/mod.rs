@@ -1,3 +1,6 @@
+// False positive: fields are used by miette derive macros for #[label], #[help], etc.
+#![allow(unused_assignments)]
+
 use super::chained_error::ChainedError;
 use crate::{
     ConfigError, FromValue, LabeledError, ParseError, Span, Spanned, Type, Value,

@@ -1,3 +1,6 @@
+// False positive: fields are used by miette derive macros for #[label], #[help], etc.
+#![allow(unused_assignments)]
+
 use std::hash::Hash;
 
 use crate::{ShellError, Span, Type};

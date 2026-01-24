@@ -353,6 +353,14 @@ opt-level = "s"     # Optimize for size
 strip = "debuginfo"
 lto = "thin"
 
+# build with `cargo build --profile release-fast`
+# Maximum runtime performance (larger binary, slower compile)
+[profile.release-fast]
+inherits = "release"
+opt-level = 3        # Max speed instead of size
+lto = "fat"          # Full LTO for cross-crate optimization
+codegen-units = 1    # Single codegen unit for better optimization
+
 # build with `cargo build --profile profiling`
 # to analyze performance with tooling like linux perf
 [profile.profiling]

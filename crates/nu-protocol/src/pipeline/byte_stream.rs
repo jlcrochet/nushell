@@ -18,7 +18,7 @@ use std::os::windows::io::OwnedHandle;
 use std::{
     fmt::Debug,
     fs::File,
-    io::{self, BufRead, BufReader, BufWriter, Cursor, ErrorKind, Read, Write},
+    io::{self, BufRead, BufReader, BufWriter, Cursor, ErrorKind, IsTerminal, Read, Write},
     process::Stdio,
 };
 
@@ -696,12 +696,45 @@ impl ByteStream {
     ///
     /// Uses `BufWriter` to reduce terminal flicker by batching small writes into
     /// fewer syscalls, causing more atomic screen updates.
+    ///
+    /// For non-external sources (tables, internal data) writing to a terminal,
+    /// also uses terminal synchronized output mode (DEC private mode 2026) to
+    /// prevent partial frame rendering on supported terminals.
     pub fn print(self, to_stderr: bool) -> Result<(), ShellError> {
-        if to_stderr {
-            self.write_to(&mut BufWriter::new(io::stderr()))
+        // Use synchronized output only for non-external sources (e.g., tables)
+        // AND only when writing to an actual terminal (not piped).
+        // External commands (Child processes) may be truly streaming, so we
+        // don't want to buffer their entire output before displaying.
+        let is_terminal = if to_stderr {
+            io::stderr().is_terminal()
         } else {
-            self.write_to(&mut BufWriter::new(io::stdout()))
+            io::stdout().is_terminal()
+        };
+        let use_sync = is_terminal && !self.stream.is_external();
+
+        let mut out: BufWriter<Box<dyn Write>> = if to_stderr {
+            BufWriter::new(Box::new(io::stderr()))
+        } else {
+            BufWriter::new(Box::new(io::stdout()))
+        };
+
+        // Begin synchronized update - terminals that don't support this will ignore it
+        // https://gist.github.com/christianparpart/d8a62cc1ab659194337d73e399004036
+        if use_sync {
+            let _ = out.write_all(b"\x1b[?2026h");
         }
+
+        let result = self.write_to(&mut out);
+
+        // End synchronized update - terminal renders the buffered content now
+        if use_sync {
+            let _ = out.write_all(b"\x1b[?2026l");
+        }
+
+        // Flush to ensure all content is written
+        let _ = out.flush();
+
+        result
     }
 
     /// Write all bytes of the [`ByteStream`] to `dest`.

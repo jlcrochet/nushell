@@ -1,11 +1,20 @@
 use csv::{ReaderBuilder, Trim};
-use nu_protocol::{ByteStream, ListStream, PipelineData, ShellError, Signals, Span, Value};
+use nu_protocol::{
+    ByteStream, ListStream, PipelineData, PipelineMetadata, ShellError, Signals, Span, TableSchema,
+    Value,
+};
 
 fn from_csv_error(err: csv::Error, span: Span) -> ShellError {
     ShellError::DelimiterError {
         msg: err.to_string(),
         span,
     }
+}
+
+/// Result of parsing delimited data: the stream and optional schema
+struct DelimitedResult {
+    stream: ListStream,
+    schema: Option<TableSchema>,
 }
 
 fn from_delimited_stream(
@@ -21,11 +30,14 @@ fn from_delimited_stream(
     }: DelimitedReaderConfig,
     input: ByteStream,
     span: Span,
-) -> Result<ListStream, ShellError> {
+) -> Result<DelimitedResult, ShellError> {
     let input_reader = if let Some(stream) = input.reader() {
         stream
     } else {
-        return Ok(ListStream::new(std::iter::empty(), span, Signals::empty()));
+        return Ok(DelimitedResult {
+            stream: ListStream::new(std::iter::empty(), span, Signals::empty()),
+            schema: None,
+        });
     };
 
     let mut reader = ReaderBuilder::new()
@@ -38,7 +50,7 @@ fn from_delimited_stream(
         .trim(trim)
         .from_reader(input_reader);
 
-    let headers = if noheaders {
+    let headers: Vec<String> = if noheaders {
         vec![]
     } else {
         reader
@@ -47,6 +59,13 @@ fn from_delimited_stream(
             .iter()
             .map(String::from)
             .collect()
+    };
+
+    // Create schema from headers if present
+    let schema = if headers.is_empty() {
+        None
+    } else {
+        Some(TableSchema::new(headers.clone()))
     };
 
     let n = headers.len();
@@ -74,7 +93,10 @@ fn from_delimited_stream(
         Value::record(columns.zip(values).collect(), span)
     });
 
-    Ok(ListStream::new(iter, span, Signals::empty()))
+    Ok(DelimitedResult {
+        stream: ListStream::new(iter, span, Signals::empty()),
+        schema,
+    })
 }
 
 pub(super) struct DelimitedReaderConfig {
@@ -93,15 +115,28 @@ pub(super) fn from_delimited_data(
     input: PipelineData,
     name: Span,
 ) -> Result<PipelineData, ShellError> {
-    let metadata = input.metadata().map(|md| md.with_content_type(None));
+    let base_metadata = input.metadata().map(|md| md.with_content_type(None));
+
+    // Helper to merge schema into metadata
+    let with_schema = |schema: Option<TableSchema>| -> Option<PipelineMetadata> {
+        match (base_metadata.clone(), schema) {
+            (Some(md), schema) => Some(md.with_table_schema(schema)),
+            (None, Some(schema)) => {
+                Some(PipelineMetadata::default().with_table_schema(Some(schema)))
+            }
+            (None, None) => None,
+        }
+    };
+
     match input {
         PipelineData::Empty => Ok(PipelineData::empty()),
         PipelineData::Value(value, ..) => {
             let string = value.into_string()?;
             let byte_stream = ByteStream::read_string(string, name, Signals::empty());
+            let result = from_delimited_stream(config, byte_stream, name)?;
             Ok(PipelineData::list_stream(
-                from_delimited_stream(config, byte_stream, name)?,
-                metadata,
+                result.stream,
+                with_schema(result.schema),
             ))
         }
         PipelineData::ListStream(list_stream, _) => Err(ShellError::OnlySupportsThisInputType {
@@ -110,10 +145,13 @@ pub(super) fn from_delimited_data(
             dst_span: name,
             src_span: list_stream.span(),
         }),
-        PipelineData::ByteStream(byte_stream, ..) => Ok(PipelineData::list_stream(
-            from_delimited_stream(config, byte_stream, name)?,
-            metadata,
-        )),
+        PipelineData::ByteStream(byte_stream, ..) => {
+            let result = from_delimited_stream(config, byte_stream, name)?;
+            Ok(PipelineData::list_stream(
+                result.stream,
+                with_schema(result.schema),
+            ))
+        }
     }
 }
 

@@ -111,7 +111,6 @@ stor open | query db "SELECT data->'baz' AS baz FROM my_table" | update baz {fro
 
         let db = SQLiteDatabase::try_from_pipeline(input, call.head)?;
         db.query(&sql, params, call.head)
-            .map(IntoPipelineData::into_pipeline_data)
     }
 }
 

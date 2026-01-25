@@ -15,7 +15,7 @@ use nu_engine::{command_prelude::*, env_to_string};
 use nu_path::form::Absolute;
 use nu_pretty_hex::HexConfig;
 use nu_protocol::{
-    ByteStream, Config, DataSource, ListStream, PipelineMetadata, Signals, TableMode,
+    ByteStream, Config, DataSource, ListStream, PipelineMetadata, Signals, TableMode, TableSchema,
     ValueIterator, shell_error::io::IoError,
 };
 use nu_table::{
@@ -578,6 +578,7 @@ fn handle_record(input: CmdInput, mut record: Record) -> ShellResult<PipelineDat
         &input.cfg,
         span,
         0,
+        None, // Single record doesn't need schema
     );
     let result = build_table_kv(record, input.cfg.view.clone(), opts, span)?;
 
@@ -761,6 +762,9 @@ fn handle_row_stream(
         _ => stream,
     };
 
+    // Extract table schema from metadata to avoid scanning records for column names
+    let table_schema = metadata.as_ref().and_then(|md| md.table_schema.clone());
+
     let paginator = PagingTableCreator::new(
         input.call.head,
         stream,
@@ -770,6 +774,7 @@ fn handle_row_stream(
         input.stack.clone(),
         input.cfg,
         cfg,
+        table_schema,
     );
     let stream = ByteStream::from_result_iter(
         paginator,
@@ -833,6 +838,8 @@ struct PagingTableCreator {
     table_config: TableConfig,
     row_offset: usize,
     config: std::sync::Arc<Config>,
+    /// Cached table schema from metadata to avoid scanning records for column names
+    table_schema: Option<TableSchema>,
 }
 
 impl PagingTableCreator {
@@ -843,6 +850,7 @@ impl PagingTableCreator {
         stack: Stack,
         table_config: TableConfig,
         config: std::sync::Arc<Config>,
+        table_schema: Option<TableSchema>,
     ) -> Self {
         PagingTableCreator {
             head,
@@ -854,6 +862,7 @@ impl PagingTableCreator {
             elements_displayed: 0,
             reached_end: false,
             row_offset: 0,
+            table_schema,
         }
     }
 
@@ -874,6 +883,7 @@ impl PagingTableCreator {
             &self.table_config,
             self.head,
             self.row_offset,
+            self.table_schema.clone(),
         )
     }
 }
@@ -1233,6 +1243,7 @@ fn create_table_opts<'a>(
     table_cfg: &'a TableConfig,
     span: Span,
     offset: usize,
+    table_schema: Option<TableSchema>,
 ) -> TableOpts<'a> {
     let comp = StyleComputer::from_config(engine_state, stack);
     let signals = engine_state.signals();
@@ -1241,7 +1252,7 @@ fn create_table_opts<'a>(
     let width = table_cfg.width;
     let theme = table_cfg.theme;
 
-    TableOpts::new(cfg, comp, signals, span, width, theme, offset, index)
+    TableOpts::new(cfg, comp, signals, span, width, theme, offset, index, table_schema)
 }
 
 fn get_cwd(engine_state: &EngineState, stack: &mut Stack) -> ShellResult<Option<NuPathBuf>> {

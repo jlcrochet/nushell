@@ -902,7 +902,7 @@ fn parse_extern_inner(
             if let Some(decl_id) = working_set.find_predecl(name.as_bytes()) {
                 let external_name = if let Some(mod_name) = module_name {
                     if name.as_bytes() == b"main" {
-                        String::from_utf8_lossy(mod_name).to_string()
+                        String::from_utf8_lossy(mod_name).into_owned()
                     } else {
                         name.clone()
                     }
@@ -1289,7 +1289,7 @@ pub fn parse_alias(
                         working_set.error(ParseError::CantAliasKeyword(
                             ALIASABLE_PARSER_KEYWORDS
                                 .iter()
-                                .map(|bytes| String::from_utf8_lossy(bytes).to_string())
+                                .map(|bytes| String::from_utf8_lossy(bytes).into_owned())
                                 .collect::<Vec<String>>()
                                 .join(", "),
                             rhs_call.head,
@@ -1933,7 +1933,7 @@ pub fn parse_module_block(
                                             span
                                         };
                                         working_set.error(ParseError::ModuleDoubleMain(
-                                            String::from_utf8_lossy(module_name).to_string(),
+                                            String::from_utf8_lossy(module_name).into_owned(),
                                             err_span,
                                         ));
                                     } else {
@@ -1970,7 +1970,7 @@ pub fn parse_module_block(
                                                 span
                                             };
                                             working_set.error(ParseError::ModuleDoubleMain(
-                                                String::from_utf8_lossy(module_name).to_string(),
+                                                String::from_utf8_lossy(module_name).into_owned(),
                                                 err_span,
                                             ));
                                         } else {
@@ -2217,7 +2217,7 @@ pub fn parse_module_file_or_dir(
         ) {
             let module = working_set.get_module(module_id).clone();
 
-            let module_name = String::from_utf8_lossy(&module.name).to_string();
+            let module_name = String::from_utf8_lossy(&module.name).into_owned();
 
             let module_comments = if let Some(comments) = working_set.get_module_comments(module_id)
             {
@@ -2585,7 +2585,7 @@ pub fn parse_use(
     } else {
         working_set.error(ParseError::ModuleNotFound(
             import_pattern.head.span,
-            String::from_utf8_lossy(&import_pattern.head.name).to_string(),
+            String::from_utf8_lossy(&import_pattern.head.name).into_owned(),
         ));
         return (
             Pipeline::from_vec(vec![Expression::new(
@@ -2772,7 +2772,7 @@ pub fn parse_hide(working_set: &mut StateWorkingSet, lite_command: &LiteCommand)
             } else {
                 working_set.error(ParseError::ModuleNotFound(
                     spans[1],
-                    String::from_utf8_lossy(&import_pattern.head.name).to_string(),
+                    String::from_utf8_lossy(&import_pattern.head.name).into_owned(),
                 ));
                 return garbage_pipeline(working_set, spans);
             };
@@ -3079,7 +3079,7 @@ pub fn parse_overlay_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> 
                 (
                     new_name
                         .map(|spanned| spanned.item)
-                        .unwrap_or_else(|| String::from_utf8_lossy(&new_module.name).to_string()),
+                        .unwrap_or_else(|| String::from_utf8_lossy(&new_module.name).into_owned()),
                     new_module,
                     module_id,
                     true,
@@ -3173,7 +3173,7 @@ pub fn parse_overlay_hide(working_set: &mut StateWorkingSet, call: Box<Call>) ->
         }
     } else {
         (
-            String::from_utf8_lossy(working_set.last_overlay_name()).to_string(),
+            String::from_utf8_lossy(working_set.last_overlay_name()).into_owned(),
             call_span,
         )
     };

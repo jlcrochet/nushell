@@ -1,5 +1,5 @@
 use nu_color_config::StyleComputer;
-use nu_protocol::{Config, Signals, Span, TableIndexMode, TableMode};
+use nu_protocol::{Config, Signals, Span, TableIndexMode, TableMode, TableSchema};
 
 use crate::{NuTable, common::INDEX_COLUMN_NAME};
 
@@ -48,6 +48,8 @@ pub struct TableOpts<'a> {
     pub mode: TableMode,
     pub index_offset: usize,
     pub index_remove: bool,
+    /// Optional table schema to avoid scanning records for column names
+    pub table_schema: Option<TableSchema>,
 }
 
 impl<'a> TableOpts<'a> {
@@ -61,6 +63,7 @@ impl<'a> TableOpts<'a> {
         mode: TableMode,
         index_offset: usize,
         index_remove: bool,
+        table_schema: Option<TableSchema>,
     ) -> Self {
         let style_computer = std::rc::Rc::new(style_computer);
 
@@ -73,6 +76,7 @@ impl<'a> TableOpts<'a> {
             mode,
             index_offset,
             index_remove,
+            table_schema,
         }
     }
 }

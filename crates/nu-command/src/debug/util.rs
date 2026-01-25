@@ -10,6 +10,7 @@ pub fn extend_record_with_metadata(
         data_source,
         content_type,
         custom,
+        table_schema,
     }) = metadata
     {
         match data_source {
@@ -25,6 +26,14 @@ pub fn extend_record_with_metadata(
         }
         if let Some(content_type) = content_type {
             record.push("content_type", Value::string(content_type, head));
+        }
+        if let Some(schema) = table_schema {
+            let columns: Vec<Value> = schema
+                .columns()
+                .iter()
+                .map(|c| Value::string(c.clone(), head))
+                .collect();
+            record.push("table_schema", Value::list(columns, head));
         }
         for (key, value) in custom {
             record.push(key, value.clone());

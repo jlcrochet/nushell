@@ -10,6 +10,7 @@ use nu_protocol::{
     eval_base::Eval,
 };
 use nu_utils::IgnoreCaseExt;
+use smallvec::SmallVec;
 use std::sync::Arc;
 
 pub fn eval_call<D: DebugContext>(
@@ -81,7 +82,7 @@ pub fn eval_call<D: DebugContext>(
         }
 
         if let Some(rest_positional) = decl.signature().rest_positional {
-            let mut rest_items = vec![];
+            let mut rest_items: SmallVec<[Value; 8]> = SmallVec::new();
 
             for result in call.rest_iter_flattened(
                 decl.signature().required_positional.len()
@@ -101,7 +102,7 @@ pub fn eval_call<D: DebugContext>(
                 rest_positional
                     .var_id
                     .expect("Internal error: rest positional parameter lacks var_id"),
-                Value::list(rest_items, span),
+                Value::list(rest_items.into_vec(), span),
             )
         }
 
@@ -533,7 +534,7 @@ impl Eval for EvalRuntime {
                                         .rev()
                                         .map(|(k, _)| k)
                                         .find(|x| x.eq_ignore_case(&key))
-                                        .cloned()
+                                        .map(|s| s.to_owned())
                                         .unwrap_or(key)
                                 } else {
                                     key

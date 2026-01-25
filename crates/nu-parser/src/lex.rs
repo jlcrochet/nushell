@@ -1,4 +1,5 @@
 use nu_protocol::{ParseError, Span};
+use smallvec::SmallVec;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum TokenContents {
@@ -101,8 +102,8 @@ pub fn lex_item(
 
     let token_start = *curr_offset;
 
-    // This Vec tracks paired delimiters
-    let mut block_level: Vec<BlockKind> = vec![];
+    // This SmallVec tracks paired delimiters (nesting rarely exceeds 4 levels)
+    let mut block_level: SmallVec<[BlockKind; 4]> = SmallVec::new();
 
     // The process of slurping up a baseline token repeats:
     //

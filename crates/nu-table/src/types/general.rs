@@ -70,7 +70,11 @@ fn create_table(input: Vec<Value>, opts: &TableOpts<'_>) -> TableResult {
         return Ok(None);
     }
 
-    let headers = get_columns(&input);
+    // Use cached schema if available, otherwise scan records for columns
+    let headers = match &opts.table_schema {
+        Some(schema) => schema.columns().iter().map(|s| s.to_owned()).collect(),
+        None => get_columns(&input),
+    };
     let with_index = has_index(opts, &headers);
     let with_header = !headers.is_empty();
     let row_offset = opts.index_offset;

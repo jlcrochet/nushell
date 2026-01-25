@@ -50,7 +50,7 @@ fn helper_for_tables(
             column_totals.insert(col_name, out);
         }
     }
-    if column_totals.keys().len() == 0 {
+    if column_totals.is_empty() {
         return Err(ShellError::UnsupportedInput {
             msg: "Unable to give a result with this input".to_string(),
             input: "value originates from here".into(),

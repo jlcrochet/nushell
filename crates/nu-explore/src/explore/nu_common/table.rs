@@ -22,6 +22,7 @@ pub fn try_build_table(
         config.table.mode,
         0,
         false,
+        None, // No schema available in explore
     );
     match value {
         Value::List { vals, .. } => try_build_list(vals, opts),

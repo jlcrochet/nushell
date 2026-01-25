@@ -3,8 +3,9 @@ use super::definitions::{
     db_index::DbIndex, db_table::DbTable,
 };
 use nu_protocol::{
-    CustomValue, PipelineData, Record, ShellError, Signals, Span, Spanned, Value, casing::Casing,
-    engine::EngineState, shell_error::io::IoError,
+    CustomValue, IntoPipelineData, PipelineData, PipelineMetadata, Record, ShellError, Signals,
+    Span, Spanned, TableSchema, Value, casing::Casing, engine::EngineState,
+    shell_error::io::IoError,
 };
 use rusqlite::{
     Connection, Error as SqliteError, OpenFlags, Row, Statement, ToSql, types::ValueRef,
@@ -100,12 +101,14 @@ impl SQLiteDatabase {
         sql: &Spanned<String>,
         params: NuSqlParams,
         call_span: Span,
-    ) -> Result<Value, ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let conn = open_sqlite_db(&self.path, call_span)?;
-        let stream = run_sql_query(conn, sql, params, &self.signals)
+        let (value, schema) = run_sql_query(conn, sql, params, &self.signals)
             .map_err(|e| e.into_shell_error(sql.span, "Failed to query SQLite database"))?;
 
-        Ok(stream)
+        // Attach schema as metadata for efficient table display
+        let metadata = schema.map(|s| PipelineMetadata::default().with_table_schema(Some(s)));
+        Ok(value.into_pipeline_data_with_metadata(metadata))
     }
 
     pub fn open_connection(&self) -> Result<Connection, ShellError> {
@@ -428,7 +431,7 @@ fn run_sql_query(
     sql: &Spanned<String>,
     params: NuSqlParams,
     signals: &Signals,
-) -> Result<Value, SqliteOrShellError> {
+) -> Result<(Value, Option<TableSchema>), SqliteOrShellError> {
     let stmt = conn.prepare(&sql.item)?;
     prepared_statement_to_nu_list(stmt, params, sql.span, signals)
 }
@@ -570,7 +573,8 @@ fn read_single_table(
 ) -> Result<Value, SqliteOrShellError> {
     // TODO: Should use params here?
     let stmt = conn.prepare(&format!("SELECT * FROM [{table_name}]"))?;
-    prepared_statement_to_nu_list(stmt, NuSqlParams::default(), call_span, signals)
+    let (value, _schema) = prepared_statement_to_nu_list(stmt, NuSqlParams::default(), call_span, signals)?;
+    Ok(value)
 }
 
 /// The SQLite type behind a query column returned as some raw type (e.g. 'text')
@@ -610,12 +614,15 @@ fn prepared_statement_to_nu_list(
     params: NuSqlParams,
     call_span: Span,
     signals: &Signals,
-) -> Result<Value, SqliteOrShellError> {
+) -> Result<(Value, Option<TableSchema>), SqliteOrShellError> {
     let columns: Vec<TypedColumn> = stmt
         .columns()
         .iter()
         .map(TypedColumn::from_rusqlite_column)
         .collect();
+
+    // Extract column names for table schema - this is "free" since we already have the column info
+    let column_names: Vec<String> = columns.iter().map(|c| c.name.clone()).collect();
 
     // I'm very sorry for this repetition
     // I tried scoping the match arms to the query_map alone, but lifetime and closure reference escapes
@@ -664,7 +671,15 @@ fn prepared_statement_to_nu_list(
         }
     };
 
-    Ok(Value::list(row_values, call_span))
+    // Create table schema from column names for efficient table display
+    let schema = if column_names.is_empty() {
+        None
+    } else {
+        Some(TableSchema::new(column_names))
+    };
+
+    let value = Value::list(row_values, call_span);
+    Ok((value, schema))
 }
 
 fn read_entire_sqlite_db(
@@ -682,9 +697,9 @@ fn read_entire_sqlite_db(
         let table_name: String = row?;
         // TODO: Should use params here?
         let table_stmt = conn.prepare(&format!("select * from [{table_name}]"))?;
-        let rows =
+        let (table_value, _schema) =
             prepared_statement_to_nu_list(table_stmt, NuSqlParams::default(), call_span, signals)?;
-        tables.push(table_name, rows);
+        tables.push(table_name, table_value);
     }
 
     Ok(Value::record(tables, call_span))

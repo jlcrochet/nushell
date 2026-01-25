@@ -17,6 +17,7 @@ use nu_protocol::{
     PositionalArg, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value, VarId, ast::*,
     casing::Casing, did_you_mean, engine::StateWorkingSet, eval_const::eval_constant,
 };
+use smallvec::SmallVec;
 use std::{
     collections::{HashMap, HashSet},
     str,
@@ -714,7 +715,7 @@ fn parse_short_flags(
             let short_flags = &arg_contents_uft8_ref[1..];
             let num_chars = short_flags.chars().count();
             let mut found_short_flags = vec![];
-            let mut unmatched_short_flags = vec![];
+            let mut unmatched_short_flags: SmallVec<[Span; 8]> = SmallVec::new();
             for (offset, short_flag) in short_flags.char_indices() {
                 let short_flag_span = Span::new(
                     arg_span.start + 1 + offset,
@@ -1793,7 +1794,7 @@ fn parse_binary_with_base(
             };
         }
 
-        let str = String::from_utf8_lossy(&binary_value).to_string();
+        let str = String::from_utf8_lossy(&binary_value).into_owned();
 
         match decode_with_base(&str, base, min_digits_per_byte) {
             Ok(v) => return Expression::new(working_set, Expr::Binary(v), span, Type::Binary),
@@ -2341,7 +2342,7 @@ pub fn parse_string_interpolation(working_set: &mut StateWorkingSet, span: Span)
 
                     output.push(Expression::new(
                         working_set,
-                        Expr::String(String::from_utf8_lossy(&str_contents).to_string()),
+                        Expr::String(String::from_utf8_lossy(&str_contents).into_owned()),
                         span,
                         Type::String,
                     ));
@@ -2411,7 +2412,7 @@ pub fn parse_string_interpolation(working_set: &mut StateWorkingSet, span: Span)
 
                 output.push(Expression::new(
                     working_set,
-                    Expr::String(String::from_utf8_lossy(&str_contents).to_string()),
+                    Expr::String(String::from_utf8_lossy(&str_contents).into_owned()),
                     span,
                     Type::String,
                 ));
@@ -2464,9 +2465,9 @@ pub fn parse_variable_expr(working_set: &mut StateWorkingSet, span: Span) -> Exp
     }
 
     let name = if contents.starts_with(b"$") {
-        String::from_utf8_lossy(&contents[1..]).to_string()
+        String::from_utf8_lossy(&contents[1..]).into_owned()
     } else {
-        String::from_utf8_lossy(contents).to_string()
+        String::from_utf8_lossy(contents).into_owned()
     };
 
     let bytes = working_set.get_span_contents(span);
@@ -2758,7 +2759,7 @@ pub fn parse_full_cell_path(
         } else {
             working_set.error(ParseError::Mismatch(
                 "variable or subexpression".into(),
-                String::from_utf8_lossy(bytes).to_string(),
+                String::from_utf8_lossy(bytes).into_owned(),
                 span,
             ));
             return garbage(working_set, span);
@@ -2868,7 +2869,7 @@ pub fn parse_datetime(working_set: &mut StateWorkingSet, span: Span) -> Expressi
         return garbage(working_set, span);
     }
 
-    let token = String::from_utf8_lossy(bytes).to_string();
+    let token = String::from_utf8_lossy(bytes).into_owned();
 
     if let Ok(datetime) = chrono::DateTime::parse_from_rfc3339(&token) {
         return Expression::new(working_set, Expr::DateTime(datetime), span, Type::Date);
@@ -4138,7 +4139,7 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                 let long_flag_part = paren_pos.map_or(&contents[2..], |pos| &contents[2..pos]);
                                 let short_flag_part = paren_pos.map(|pos| &contents[pos + 1..]);
 
-                                let long = String::from_utf8_lossy(long_flag_part).to_string();
+                                let long = String::from_utf8_lossy(long_flag_part).into_owned();
                                 let mut variable_name = long_flag_part.to_vec();
                                 // Replace the '-' in a variable name with '_'
                                 for byte in variable_name.iter_mut() {
@@ -4304,7 +4305,7 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                             }
                             // Positional arg, optional
                             else if let Some(optional_param) = contents.strip_suffix(b"?") {
-                                let name = String::from_utf8_lossy(optional_param).to_string();
+                                let name = String::from_utf8_lossy(optional_param).into_owned();
 
                                 if !is_variable(optional_param) {
                                     working_set.error(ParseError::Expected(
@@ -4336,7 +4337,7 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                             }
                             // Rest param
                             else if let Some(contents) = contents.strip_prefix(b"...") {
-                                let name = String::from_utf8_lossy(contents).to_string();
+                                let name = String::from_utf8_lossy(contents).into_owned();
                                 let contents_vec: Vec<u8> = contents.to_vec();
 
                                 if !is_variable(&contents_vec) {
@@ -4361,7 +4362,7 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                             }
                             // Normal param
                             else {
-                                let name = String::from_utf8_lossy(&contents).to_string();
+                                let name = String::from_utf8_lossy(&contents).into_owned();
                                 let contents_vec = contents.to_vec();
 
                                 if !is_variable(&contents_vec) {
@@ -4610,7 +4611,7 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
             } => {
                 let contents = working_set.get_span_contents(Span::new(span.start + 1, span.end));
 
-                let mut contents = String::from_utf8_lossy(contents).to_string();
+                let mut contents = String::from_utf8_lossy(contents).into_owned();
                 contents = contents.trim().into();
 
                 if let Some(last) = args.last_mut() {
@@ -5810,14 +5811,14 @@ pub fn parse_math_expression(
     // The end result is a stack that we can fold into binary operations as right associations
     // safely.
 
-    let mut expr_stack: Vec<Expression> = vec![];
+    let mut expr_stack: SmallVec<[Expression; 8]> = SmallVec::new();
 
     let mut idx = 0;
     let mut last_prec = u8::MAX;
 
     let first_span = working_set.get_span_contents(spans[0]);
 
-    let mut not_start_spans = vec![];
+    let mut not_start_spans: SmallVec<[usize; 4]> = SmallVec::new();
 
     if first_span == b"if" || first_span == b"match" {
         // If expression

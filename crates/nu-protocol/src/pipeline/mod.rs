@@ -5,6 +5,7 @@ mod metadata;
 mod out_dest;
 mod pipeline_data;
 mod signals;
+mod table_schema;
 
 pub use byte_stream::*;
 pub use handlers::*;
@@ -13,3 +14,4 @@ pub use metadata::*;
 pub use out_dest::*;
 pub use pipeline_data::*;
 pub use signals::*;
+pub use table_schema::*;

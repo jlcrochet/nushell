@@ -261,9 +261,13 @@ impl EngineState {
             Arc::make_mut(&mut self.modules).extend(delta.modules);
         }
 
-        let first = delta.scope.remove(0);
+        let mut first = delta.scope.remove(0);
 
-        for (delta_name, delta_overlay) in first.clone().overlays {
+        // Compute these before consuming first.overlays
+        let mut activated_ids = self.translate_overlay_ids(&first);
+        let removed_overlays = std::mem::take(&mut first.removed_overlays);
+
+        for (delta_name, delta_overlay) in first.overlays {
             if let Some((_, existing_overlay)) = self
                 .scope
                 .overlays
@@ -290,11 +294,9 @@ impl EngineState {
             }
         }
 
-        let mut activated_ids = self.translate_overlay_ids(&first);
-
         let mut removed_ids = vec![];
 
-        for name in &first.removed_overlays {
+        for name in &removed_overlays {
             if let Some(overlay_id) = self.find_overlay(name) {
                 removed_ids.push(overlay_id);
             }

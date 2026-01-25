@@ -4,6 +4,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::Record;
 
+use super::TableSchema;
+
 /// Metadata that is valid for the whole [`PipelineData`](crate::PipelineData)
 ///
 /// ## Custom Metadata
@@ -16,12 +18,21 @@ use crate::Record;
 /// - `"custom_plugin_field"` - Plugin-specific metadata
 ///
 /// This convention helps ensure different commands and plugins don't overwrite each other's metadata.
+///
+/// ## Table Schema
+///
+/// The `table_schema` field stores the column names for table data (lists of records).
+/// When set, this provides fast column information without scanning the data, and
+/// enables memory optimization through schema sharing.
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 pub struct PipelineMetadata {
     pub data_source: DataSource,
     pub content_type: Option<String>,
     #[serde(default)]
     pub custom: Record,
+    /// Schema for table data (column names shared across all records)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub table_schema: Option<TableSchema>,
 }
 
 impl PipelineMetadata {
@@ -49,6 +60,7 @@ impl PipelineMetadata {
             data_source,
             content_type,
             custom,
+            table_schema,
         } = self;
 
         // Transform FilePath to None after collect
@@ -58,14 +70,27 @@ impl PipelineMetadata {
         };
 
         // Return None if completely empty
-        if matches!(data_source, DataSource::None) && content_type.is_none() && custom.is_empty() {
+        if matches!(data_source, DataSource::None)
+            && content_type.is_none()
+            && custom.is_empty()
+            && table_schema.is_none()
+        {
             None
         } else {
             Some(Self {
                 data_source,
                 content_type,
                 custom,
+                table_schema,
             })
+        }
+    }
+
+    /// Set the table schema for this metadata.
+    pub fn with_table_schema(self, schema: Option<TableSchema>) -> Self {
+        Self {
+            table_schema: schema,
+            ..self
         }
     }
 }

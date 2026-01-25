@@ -51,7 +51,7 @@ impl<'e, 's> ScopeData<'e, 's> {
         let mut vars = vec![];
 
         for (var_name, var_id) in &self.vars_map {
-            let var_name = Value::string(String::from_utf8_lossy(var_name).to_string(), span);
+            let var_name = Value::string(String::from_utf8_lossy(var_name).into_owned(), span);
 
             let var = self.engine_state.get_var(**var_id);
             let var_type = Value::string(var.ty.to_string(), span);

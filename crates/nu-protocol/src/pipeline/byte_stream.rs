@@ -18,7 +18,7 @@ use std::os::windows::io::OwnedHandle;
 use std::{
     fmt::Debug,
     fs::File,
-    io::{self, BufRead, BufReader, Cursor, ErrorKind, Read, Write},
+    io::{self, BufRead, BufReader, BufWriter, Cursor, ErrorKind, Read, Write},
     process::Stdio,
 };
 
@@ -693,11 +693,14 @@ impl ByteStream {
     }
 
     /// Print all bytes of the [`ByteStream`] to stdout or stderr.
+    ///
+    /// Uses `BufWriter` to reduce terminal flicker by batching small writes into
+    /// fewer syscalls, causing more atomic screen updates.
     pub fn print(self, to_stderr: bool) -> Result<(), ShellError> {
         if to_stderr {
-            self.write_to(&mut io::stderr())
+            self.write_to(&mut BufWriter::new(io::stderr()))
         } else {
-            self.write_to(&mut io::stdout())
+            self.write_to(&mut BufWriter::new(io::stdout()))
         }
     }
 

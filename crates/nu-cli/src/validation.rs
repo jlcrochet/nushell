@@ -4,7 +4,7 @@ use nu_protocol::{
     engine::{EngineState, StateWorkingSet},
 };
 use reedline::{ValidationResult, Validator};
-use std::sync::Arc;
+use std::{io::Write, sync::Arc};
 
 pub struct NuValidator {
     pub engine_state: Arc<EngineState>,
@@ -21,6 +21,9 @@ impl Validator for NuValidator {
         ) {
             ValidationResult::Incomplete
         } else {
+            // Hide cursor before reedline prints the newline on submit
+            let _ = std::io::stdout().write_all(b"\x1b[?25l");
+            let _ = std::io::stdout().flush();
             ValidationResult::Complete
         }
     }

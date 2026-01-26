@@ -82,6 +82,14 @@ pub fn calculate(
             ),
             _ => mf(vals, span, name),
         },
+        PipelineData::Value(Value::Table { val, .. }, ..) => {
+            let vals: Vec<Value> = val
+                .into_owned()
+                .into_iter()
+                .map(|record| Value::record(record, span))
+                .collect();
+            helper_for_tables(&vals, span, name, mf)
+        }
         PipelineData::Value(Value::Record { val, .. }, ..) => {
             let mut record = val.into_owned();
             record

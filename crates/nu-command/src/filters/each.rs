@@ -146,6 +146,7 @@ list of lists like `list<list<string>>` into a flat list like `list<string>`."#
             }
             PipelineData::Value(Value::Range { .. }, ..)
             | PipelineData::Value(Value::List { .. }, ..)
+            | PipelineData::Value(Value::Table { .. }, ..)
             | PipelineData::ListStream(..) => {
                 let mut closure = ClosureEval::new(engine_state, stack, closure);
 

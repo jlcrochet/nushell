@@ -234,7 +234,7 @@ fn to_md(
     // Tables in nushell can be represented as List of Records or List of Lists
     let is_simple_list = !values
         .iter()
-        .any(|v| matches!(v, Value::Record { .. } | Value::List { .. }));
+        .any(|v| matches!(v, Value::Record { .. } | Value::List { .. } | Value::Table { .. }));
 
     // For simple lists, use list_style formatting
     if is_simple_list {
@@ -267,7 +267,7 @@ fn to_md(
                 .into_iter()
                 .scan(0usize, |list_idx, val| {
                     Some(match &val {
-                        Value::List { .. } => {
+                        Value::List { .. } | Value::Table { .. } => {
                             format!(
                                 "{}\n\n",
                                 table(
@@ -476,6 +476,15 @@ fn table(
         .into_iter()
         .flat_map(|val| match val {
             Value::List { vals, .. } => vals,
+            Value::Table {
+                val: table,
+                internal_span,
+                ..
+            } => table
+                .into_owned()
+                .into_iter()
+                .map(|record| Value::record(record, internal_span))
+                .collect(),
             other => vec![other],
         })
         .collect::<Vec<Value>>();

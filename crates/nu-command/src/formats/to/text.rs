@@ -1,7 +1,7 @@
 use chrono::Datelike;
 use chrono_humanize::HumanTime;
 use nu_engine::command_prelude::*;
-use nu_protocol::{ByteStream, PipelineMetadata, format_duration, shell_error::io::IoError};
+use nu_protocol::{ByteStream, Config, PipelineMetadata, format_duration, shell_error::io::IoError};
 use nu_utils::ObviousFloat;
 use std::io::Write;
 
@@ -189,6 +189,10 @@ fn local_into_string(
             .map(|x| local_into_string(engine_state, x, ", ", serialize_types))
             .collect::<Vec<_>>()
             .join(separator),
+        Value::Table { val, .. } => {
+            // Convert table to list representation for text output
+            val.to_list(span).to_expanded_string(separator, &Config::default())
+        }
         Value::Record { val, .. } => val
             .into_owned()
             .into_iter()

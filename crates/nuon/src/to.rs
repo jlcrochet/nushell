@@ -266,6 +266,53 @@ fn value_to_string(
                 ))
             }
         }
+        Value::Table { val, .. } => {
+            // Serialize Table using the same format as List<Record> (table literal syntax)
+            let headers: Vec<String> = val
+                .columns()
+                .iter()
+                .map(|string| {
+                    let string = if needs_quoting(string) {
+                        &escape_quote_string(string)
+                    } else {
+                        string
+                    };
+                    format!("{idt}{string}")
+                })
+                .collect();
+            let headers_output = headers.join(&format!(",{sep}{nl}{idt_pt}"));
+
+            let mut table_output = vec![];
+            for row in val.rows() {
+                let mut row_strs = vec![];
+                for cell in row {
+                    row_strs.push(value_to_string_without_quotes(
+                        engine_state,
+                        cell,
+                        span,
+                        depth + 2,
+                        indent,
+                        serialize_types,
+                        raw_strings,
+                    )?);
+                }
+                table_output.push(row_strs.join(&format!(",{sep}{nl}{idt_pt}")));
+            }
+
+            if table_output.is_empty() {
+                // Empty table
+                Ok(format!(
+                    "[{nl}{idt_po}[{nl}{idt_pt}{}{nl}{idt_po}]{nl}{idt}]",
+                    headers_output
+                ))
+            } else {
+                Ok(format!(
+                    "[{nl}{idt_po}[{nl}{idt_pt}{}{nl}{idt_po}];{sep}{nl}{idt_po}[{nl}{idt_pt}{}{nl}{idt_po}]{nl}{idt}]",
+                    headers_output,
+                    table_output.join(&format!("{nl}{idt_po}],{sep}{nl}{idt_po}[{nl}{idt_pt}"))
+                ))
+            }
+        }
         Value::Nothing { .. } => Ok("null".to_string()),
         Value::Range { val, .. } => match **val {
             Range::IntRange(range) => Ok(range.to_string()),

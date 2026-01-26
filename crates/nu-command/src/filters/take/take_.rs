@@ -72,6 +72,16 @@ impl Command for Take {
                             engine_state.signals().clone(),
                             metadata,
                         )),
+                    Value::Table { val, .. } => Ok(val
+                        .into_owned()
+                        .into_iter()
+                        .map(move |record| Value::record(record, span))
+                        .take(rows_desired)
+                        .into_pipeline_data_with_metadata(
+                            head,
+                            engine_state.signals().clone(),
+                            metadata,
+                        )),
                     // Propagate errors by explicitly matching them before the final case.
                     Value::Error { error, .. } => Err(error.as_ref().clone()),
                     other => Err(ShellError::OnlySupportsThisInputType {

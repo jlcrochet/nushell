@@ -1,5 +1,5 @@
-use indexmap::IndexMap;
 use nu_engine::command_prelude::*;
+use nu_protocol::{TableData, TableSchema};
 
 #[derive(Clone)]
 pub struct FromSsv;
@@ -260,18 +260,35 @@ fn from_ssv_string_to_value(
     split_at: usize,
     span: Span,
 ) -> Value {
-    let rows = string_to_table(s, noheaders, aligned_columns, split_at)
-        .into_iter()
-        .map(|row| {
-            let mut dict = IndexMap::new();
-            for (col, entry) in row {
-                dict.insert(col, Value::string(entry, span));
-            }
-            Value::record(dict.into_iter().collect(), span)
-        })
-        .collect();
+    let parsed_rows = string_to_table(s, noheaders, aligned_columns, split_at);
 
-    Value::list(rows, span)
+    // If no rows, return empty list
+    if parsed_rows.is_empty() {
+        return Value::list(vec![], span);
+    }
+
+    // Extract column names from the first row (all rows have same columns)
+    let columns: Vec<String> = parsed_rows
+        .first()
+        .map(|row| row.iter().map(|(col, _)| col.clone()).collect())
+        .unwrap_or_default();
+
+    // Build table with known schema
+    let schema: TableSchema = columns.into();
+    let mut table = TableData::new(schema);
+
+    for row in parsed_rows {
+        let values: Vec<Value> = row
+            .into_iter()
+            .map(|(_, entry)| Value::string(entry, span))
+            .collect();
+        // If row has wrong number of columns, skip (shouldn't happen with SSV)
+        if values.len() == table.columns().len() {
+            let _ = table.push_row(values);
+        }
+    }
+
+    Value::table(table, span)
 }
 
 fn from_ssv(

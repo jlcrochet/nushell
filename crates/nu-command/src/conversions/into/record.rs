@@ -178,6 +178,24 @@ fn into_record(call: &Call, input: PipelineData) -> Result<PipelineData, ShellEr
             Ok(Value::record(record, span).into_pipeline_data_with_metadata(metadata))
         }
         PipelineData::Value(Value::Record { .. }, _) => Ok(input),
+        PipelineData::Value(Value::Table { val, .. }, metadata) => {
+            // Convert a single-row table to a record
+            let table = val.into_owned();
+            if table.len() == 1 {
+                let row = table.into_iter().next().expect("checked length is 1");
+                Ok(Value::record(row, span).into_pipeline_data_with_metadata(metadata))
+            } else {
+                Err(ShellError::TypeMismatch {
+                    err_message: format!(
+                        "Can't convert {} to record",
+                        format!("table<{}> with {} rows",
+                            table.columns().iter().cloned().collect::<Vec<_>>().join(", "),
+                            table.len())
+                    ),
+                    span,
+                })
+            }
+        }
         PipelineData::Value(Value::Error { error, .. }, _) => Err(error.as_ref().clone()),
         other => Err(ShellError::TypeMismatch {
             err_message: format!("Can't convert {} to record", other.get_type()),

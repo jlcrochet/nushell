@@ -75,43 +75,45 @@ prints out the list properly."#
         let use_color: bool = color_param && config.use_ansi_coloring.get(engine_state);
         let cwd = engine_state.cwd(Some(stack))?;
 
+        // Helper to process items and create grid output
+        let process_items =
+            |items: Option<Vec<(usize, String, String)>>| -> Result<PipelineData, ShellError> {
+                if let Some(items) = items {
+                    create_grid_output(
+                        items,
+                        call,
+                        width_param,
+                        use_color,
+                        separator_param.clone(),
+                        env_str.clone(),
+                        icons_param,
+                        cwd.as_ref(),
+                    )
+                } else {
+                    Ok(PipelineData::empty())
+                }
+            };
+
         match input {
             PipelineData::Value(Value::List { vals, .. }, ..) => {
-                // dbg!("value::list");
-                let data = convert_to_list(vals, config)?;
-                if let Some(items) = data {
-                    Ok(create_grid_output(
-                        items,
-                        call,
-                        width_param,
-                        use_color,
-                        separator_param,
-                        env_str,
-                        icons_param,
-                        cwd.as_ref(),
-                    )?)
-                } else {
-                    Ok(PipelineData::empty())
-                }
+                process_items(convert_to_list(vals, config)?)
+            }
+            PipelineData::Value(
+                Value::Table {
+                    val, internal_span, ..
+                },
+                ..,
+            ) => {
+                // Convert table to list of records for grid rendering
+                let vals: Vec<Value> = val
+                    .into_owned()
+                    .into_iter()
+                    .map(|record| Value::record(record, internal_span))
+                    .collect();
+                process_items(convert_to_list(vals, config)?)
             }
             PipelineData::ListStream(stream, ..) => {
-                // dbg!("value::stream");
-                let data = convert_to_list(stream, config)?;
-                if let Some(items) = data {
-                    Ok(create_grid_output(
-                        items,
-                        call,
-                        width_param,
-                        use_color,
-                        separator_param,
-                        env_str,
-                        icons_param,
-                        cwd.as_ref(),
-                    )?)
-                } else {
-                    // dbg!(data);
-                    Ok(PipelineData::empty())
-                }
+                process_items(convert_to_list(stream, config)?)
             }
             PipelineData::Value(Value::Record { val, .. }, ..) => {
                 // dbg!("value::record");

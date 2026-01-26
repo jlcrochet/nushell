@@ -428,6 +428,16 @@ fn describe_value_inner(
                 "value" => value,
             })
         }
+        Value::Table { ref val, .. } => {
+            Description::Record(record! {
+                "type" => Value::string("table", head),
+                "detailed_type" => Value::string(value_type, head),
+                "rows" => Value::int(val.len() as i64, head),
+                "columns" => Value::int(val.num_columns() as i64, head),
+                "rust_type" => Value::string(type_of(&val), head),
+                "value" => value,
+            })
+        }
         Value::Closure { ref val, .. } => {
             let block = engine_state.map(|engine_state| engine_state.get_block(val.block_id));
 

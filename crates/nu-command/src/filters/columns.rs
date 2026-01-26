@@ -98,6 +98,11 @@ fn getcol(head: Span, input: PipelineData) -> Result<PipelineData, ShellError> {
                     .into_iter()
                     .map(move |(x, _)| Value::string(x, head))
                     .collect(),
+                Value::Table { val: table, .. } => table
+                    .columns()
+                    .iter()
+                    .map(|x| Value::string(x.clone(), head))
+                    .collect(),
                 // Propagate errors
                 Value::Error { error, .. } => return Err(error.as_ref().clone()),
                 other => {

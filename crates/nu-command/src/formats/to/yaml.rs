@@ -130,6 +130,21 @@ pub fn value_to_yaml_value(
 
             serde_yaml::Value::Sequence(out)
         }
+        Value::Table { val, .. } => {
+            // Serialize Table as sequence of mappings
+            let mut rows = vec![];
+            for row_values in val.rows() {
+                let mut m = serde_yaml::Mapping::new();
+                for (col, cell) in val.columns().iter().zip(row_values.iter()) {
+                    m.insert(
+                        serde_yaml::Value::String(col.clone()),
+                        value_to_yaml_value(engine_state, cell, serialize_types)?,
+                    );
+                }
+                rows.push(serde_yaml::Value::Mapping(m));
+            }
+            serde_yaml::Value::Sequence(rows)
+        }
         Value::Closure { val, .. } => {
             if serialize_types {
                 let block = engine_state.get_block(val.block_id);

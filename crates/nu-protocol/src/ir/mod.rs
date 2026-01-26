@@ -198,6 +198,12 @@ pub enum Instruction {
     /// Spread a record onto a record. Used to construct record literals. Any existing value for the
     /// key is overwritten.
     RecordSpread { src_dst: RegId, items: RegId },
+    /// Set the schema (column names) for a table. The columns register should contain a list of
+    /// strings. Used to construct table literals.
+    TableSetSchema { src_dst: RegId, columns: RegId },
+    /// Push a row onto a table. The values register should contain a list of values matching the
+    /// table's column count. Used to construct table literals.
+    TablePushRow { src_dst: RegId, values: RegId },
     /// Negate a boolean.
     Not { src_dst: RegId },
     /// Do a binary operation on `lhs_dst` (left) and `rhs` (right) and write the result to
@@ -315,6 +321,8 @@ impl Instruction {
             Instruction::ListSpread { src_dst, .. } => Some(src_dst),
             Instruction::RecordInsert { src_dst, .. } => Some(src_dst),
             Instruction::RecordSpread { src_dst, .. } => Some(src_dst),
+            Instruction::TableSetSchema { src_dst, .. } => Some(src_dst),
+            Instruction::TablePushRow { src_dst, .. } => Some(src_dst),
             Instruction::Not { src_dst } => Some(src_dst),
             Instruction::BinaryOp { lhs_dst, .. } => Some(lhs_dst),
             Instruction::FollowCellPath { src_dst, .. } => Some(src_dst),
@@ -425,6 +433,10 @@ pub enum Literal {
         capacity: usize,
     },
     Record {
+        capacity: usize,
+    },
+    /// A table with row capacity (schema will be set via TableSetSchema)
+    Table {
         capacity: usize,
     },
     Filepath {

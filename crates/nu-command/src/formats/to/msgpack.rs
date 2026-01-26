@@ -246,6 +246,17 @@ pub(crate) fn write_value(
                 )?;
             }
         }
+        Value::Table { val: table, .. } => {
+            // Serialize Table as array of maps (same as List<Record>)
+            mp::write_array_len(out, convert(table.len(), span)?).err_span(span)?;
+            for row in table.rows() {
+                mp::write_map_len(out, convert(table.num_columns(), span)?).err_span(span)?;
+                for (col, cell) in table.columns().iter().zip(row.iter()) {
+                    mp::write_str(out, col).err_span(span)?;
+                    write_value(out, cell, depth + 1, engine_state, call_span, serialize_types)?;
+                }
+            }
+        }
         Value::Nothing { .. } => {
             mp::write_nil(out)
                 .map_err(InvalidMarkerWrite)

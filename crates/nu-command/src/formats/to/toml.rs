@@ -73,6 +73,18 @@ fn helper(
         Value::List { vals, .. } => {
             toml::Value::Array(toml_list(engine_state, vals, serialize_types)?)
         }
+        Value::Table { val, .. } => {
+            // Serialize Table as array of tables
+            let mut rows = vec![];
+            for row_values in val.rows() {
+                let mut m = toml::map::Map::new();
+                for (col, cell) in val.columns().iter().zip(row_values.iter()) {
+                    m.insert(col.clone(), helper(engine_state, cell, serialize_types)?);
+                }
+                rows.push(toml::Value::Table(m));
+            }
+            toml::Value::Array(rows)
+        }
         Value::Closure { val, .. } => {
             if serialize_types {
                 let block = engine_state.get_block(val.block_id);

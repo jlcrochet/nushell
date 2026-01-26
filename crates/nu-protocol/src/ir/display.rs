@@ -194,6 +194,12 @@ impl fmt::Display for FmtInstruction<'_> {
             Instruction::RecordSpread { src_dst, items } => {
                 write!(f, "{:WIDTH$} {src_dst}, {items}", "record-spread")
             }
+            Instruction::TableSetSchema { src_dst, columns } => {
+                write!(f, "{:WIDTH$} {src_dst}, {columns}", "table-set-schema")
+            }
+            Instruction::TablePushRow { src_dst, values } => {
+                write!(f, "{:WIDTH$} {src_dst}, {values}", "table-push-row")
+            }
             Instruction::Not { src_dst } => {
                 write!(f, "{:WIDTH$} {src_dst}", "not")
             }
@@ -358,6 +364,7 @@ impl fmt::Display for FmtLiteral<'_> {
             } => write!(f, "range({start}, {step}, {end}, {inclusion:?})"),
             Literal::List { capacity } => write!(f, "list(capacity = {capacity})"),
             Literal::Record { capacity } => write!(f, "record(capacity = {capacity})"),
+            Literal::Table { capacity } => write!(f, "table(capacity = {capacity})"),
             Literal::Filepath { val, no_expand } => write!(
                 f,
                 "filepath({}, no_expand = {no_expand:?})",

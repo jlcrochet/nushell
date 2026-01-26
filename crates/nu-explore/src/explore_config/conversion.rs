@@ -31,6 +31,18 @@ pub fn nu_value_to_json(
                 .collect();
             Value::Array(json_vals?)
         }
+        nu_protocol::Value::Table { val, .. } => {
+            // Serialize Table as array of objects
+            let mut rows = vec![];
+            for row_values in val.rows() {
+                let mut map = serde_json::Map::new();
+                for (col, cell) in val.columns().iter().zip(row_values.iter()) {
+                    map.insert(col.clone(), nu_value_to_json(engine_state, cell, span)?);
+                }
+                rows.push(Value::Object(map));
+            }
+            Value::Array(rows)
+        }
         nu_protocol::Value::Record { val, .. } => {
             let mut map = serde_json::Map::new();
             for (k, v) in val.iter() {

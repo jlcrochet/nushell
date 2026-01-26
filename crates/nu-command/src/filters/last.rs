@@ -160,6 +160,25 @@ impl Command for Last {
                             Ok(Value::binary(val, span).into_pipeline_data())
                         }
                     }
+                    Value::Table { val, .. } => {
+                        if return_single_element {
+                            let len = val.len();
+                            if len > 0 {
+                                if let Some(record) = val.get_row(len - 1) {
+                                    Ok(Value::record(record, span).into_pipeline_data())
+                                } else {
+                                    Ok(Value::nothing(head).into_pipeline_data_with_metadata(metadata))
+                                }
+                            } else if strict_mode {
+                                Err(ShellError::AccessEmptyContent { span: head })
+                            } else {
+                                Ok(Value::nothing(head).into_pipeline_data_with_metadata(metadata))
+                            }
+                        } else {
+                            let table = val.into_owned().last(rows);
+                            Ok(Value::table(table, span).into_pipeline_data_with_metadata(metadata))
+                        }
+                    }
                     // Propagate errors by explicitly matching them before the final case.
                     Value::Error { error, .. } => Err(error.as_ref().clone()),
                     other => Err(ShellError::OnlySupportsThisInputType {

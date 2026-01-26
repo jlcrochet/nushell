@@ -359,6 +359,16 @@ impl PipelineData {
                         )
                         .into_iter(),
                     ),
+                    Value::Table { val, .. } => PipelineIteratorInner::ListStream(
+                        ListStream::new(
+                            val.into_owned()
+                                .into_iter()
+                                .map(move |record| Value::record(record, val_span)),
+                            val_span,
+                            Signals::empty(),
+                        )
+                        .into_iter(),
+                    ),
                     // Propagate errors by explicitly matching them before the final case.
                     Value::Error { error, .. } => return Err(error.as_ref().clone()),
                     other => {
@@ -467,6 +477,12 @@ impl PipelineData {
                         .into_range_iter(span, Signals::empty())
                         .map(f)
                         .into_pipeline_data(span, signals.clone()),
+                    Value::Table { val, .. } => val
+                        .into_owned()
+                        .into_iter()
+                        .map(move |record| Value::record(record, span))
+                        .map(f)
+                        .into_pipeline_data(span, signals.clone()),
                     value => match f(value) {
                         Value::Error { error, .. } => return Err(error.as_ref().clone()),
                         v => v.into_pipeline_data(),
@@ -550,6 +566,12 @@ impl PipelineData {
                         .into_pipeline_data(span, signals.clone()),
                     Value::Range { val, .. } => val
                         .into_range_iter(span, Signals::empty())
+                        .filter(f)
+                        .into_pipeline_data(span, signals.clone()),
+                    Value::Table { val, .. } => val
+                        .into_owned()
+                        .into_iter()
+                        .map(move |record| Value::record(record, span))
                         .filter(f)
                         .into_pipeline_data(span, signals.clone()),
                     value => {
@@ -859,6 +881,16 @@ impl IntoIterator for PipelineData {
                     Value::Range { val, signals, .. } => PipelineIteratorInner::ListStream(
                         ListStream::new(
                             val.into_range_iter(span, signals.unwrap_or_else(Signals::empty)),
+                            span,
+                            Signals::empty(),
+                        )
+                        .into_iter(),
+                    ),
+                    Value::Table { val, .. } => PipelineIteratorInner::ListStream(
+                        ListStream::new(
+                            val.into_owned()
+                                .into_iter()
+                                .map(move |record| Value::record(record, span)),
                             span,
                             Signals::empty(),
                         )

@@ -69,6 +69,16 @@ impl Command for UrlBuildQuery {
         let output = match value {
             Value::Record { ref val, .. } => record_to_query_string(val, span, head),
             Value::List { ref vals, .. } => table_to_query_string(vals, span, head),
+            Value::Table { ref val, .. } => {
+                // Convert table rows to records for the query string builder
+                let vals: Vec<Value> = val
+                    .clone()
+                    .into_owned()
+                    .into_iter()
+                    .map(|record| Value::record(record, span))
+                    .collect();
+                table_to_query_string(&vals, span, head)
+            }
             // Propagate existing errors
             Value::Error { error, .. } => Err(error.as_ref().clone()),
             other => Err(ShellError::UnsupportedInput {

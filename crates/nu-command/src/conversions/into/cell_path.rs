@@ -195,6 +195,17 @@ fn value_to_cell_path(value: Value, span: Span) -> Result<Value, ShellError> {
         Value::CellPath { .. } => Ok(value),
         Value::Int { val, .. } => Ok(int_to_cell_path(val, span)),
         Value::List { vals, .. } => list_to_cell_path(&vals, span),
+        Value::Table {
+            val, internal_span, ..
+        } => {
+            // Convert table rows to records, then to cell path
+            let vals: Vec<Value> = val
+                .into_owned()
+                .into_iter()
+                .map(|record| Value::record(record, internal_span))
+                .collect();
+            list_to_cell_path(&vals, span)
+        }
         other => Err(ShellError::OnlySupportsThisInputType {
             exp_input_type: "int, list".into(),
             wrong_type: other.get_type().to_string(),

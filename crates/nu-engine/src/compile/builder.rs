@@ -179,6 +179,7 @@ impl BlockBuilder {
                         | Literal::RowCondition(_)
                         | Literal::List { capacity: _ }
                         | Literal::Record { capacity: _ }
+                        | Literal::Table { capacity: _ }
                         | Literal::Filepath {
                             val: _,
                             no_expand: _,
@@ -248,6 +249,12 @@ impl BlockBuilder {
             }
             Instruction::RecordSpread { src_dst, items } => {
                 allocate(&[*src_dst, *items], &[*src_dst])
+            }
+            Instruction::TableSetSchema { src_dst, columns } => {
+                allocate(&[*src_dst, *columns], &[*src_dst])
+            }
+            Instruction::TablePushRow { src_dst, values } => {
+                allocate(&[*src_dst, *values], &[*src_dst])
             }
             Instruction::Not { src_dst } => allocate(&[*src_dst], &[*src_dst]),
             Instruction::BinaryOp {

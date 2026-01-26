@@ -298,6 +298,35 @@ fn select(
                         engine_state.signals().clone(),
                         metadata,
                     )),
+                Value::Table { val, .. } => {
+                    // Iterate over table rows as records
+                    Ok(val
+                        .into_owned()
+                        .into_iter()
+                        .map(move |record| {
+                            if !columns.is_empty() {
+                                let input_val = Value::record(record, span);
+                                let mut new_record = Record::new();
+                                for path in &columns {
+                                    match input_val.follow_cell_path(&path.members) {
+                                        Ok(fetcher) => {
+                                            new_record
+                                                .push(path.to_column_name(), fetcher.into_owned());
+                                        }
+                                        Err(e) => return Value::error(e, call_span),
+                                    }
+                                }
+                                Value::record(new_record, span)
+                            } else {
+                                Value::record(record, span)
+                            }
+                        })
+                        .into_pipeline_data_with_metadata(
+                            call_span,
+                            engine_state.signals().clone(),
+                            metadata,
+                        ))
+                }
                 _ => {
                     if !columns.is_empty() {
                         let mut record = Record::new();

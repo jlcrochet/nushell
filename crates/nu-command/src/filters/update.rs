@@ -114,6 +114,7 @@ fn update(
 
     match input {
         PipelineData::Value(mut value, metadata) => {
+            let value_span = value.span();
             if let Value::Closure { val, .. } = replacement {
                 match (cell_path.members.first(), &mut value) {
                     (Some(PathMember::String { .. }), Value::List { vals, .. }) => {
@@ -127,6 +128,26 @@ fn update(
                                 false,
                             )?;
                         }
+                    }
+                    (Some(PathMember::String { .. }), Value::Table { val: table, .. }) => {
+                        let mut closure = ClosureEval::new(engine_state, stack, *val);
+                        // Convert table to list, update each row, then convert back if possible
+                        let mut vals: Vec<Value> = table
+                            .clone()
+                            .into_owned()
+                            .into_iter()
+                            .map(|record| Value::record(record, value_span))
+                            .collect();
+                        for val in &mut vals {
+                            update_value_by_closure(
+                                val,
+                                &mut closure,
+                                head,
+                                &cell_path.members,
+                                false,
+                            )?;
+                        }
+                        value = Value::list(vals, value_span);
                     }
                     (first, _) => {
                         update_single_value_by_closure(

@@ -141,6 +141,21 @@ pub fn value_to_json_value(
         Value::List { vals, .. } => {
             nu_json::Value::Array(json_list(engine_state, vals, call_span, serialize_types)?)
         }
+        Value::Table { val, .. } => {
+            // Serialize Table as array of objects
+            let mut rows = vec![];
+            for row_values in val.rows() {
+                let mut m = nu_json::Map::new();
+                for (col, cell) in val.columns().iter().zip(row_values.iter()) {
+                    m.insert(
+                        col.clone(),
+                        value_to_json_value(engine_state, cell, call_span, serialize_types)?,
+                    );
+                }
+                rows.push(nu_json::Value::Object(m));
+            }
+            nu_json::Value::Array(rows)
+        }
         Value::Error { error, .. } => return Err(error.as_ref().clone()),
         Value::Closure { val, .. } => {
             if serialize_types {

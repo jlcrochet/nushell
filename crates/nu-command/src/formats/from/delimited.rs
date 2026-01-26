@@ -1,7 +1,7 @@
 use csv::{ReaderBuilder, Trim};
 use nu_protocol::{
-    ByteStream, ListStream, PipelineData, PipelineMetadata, ShellError, Signals, Span, TableSchema,
-    Value,
+    ByteStream, IntoPipelineData, ListStream, PipelineData, PipelineMetadata, ShellError, Signals,
+    Span, TableData, TableSchema, Value,
 };
 
 fn from_csv_error(err: csv::Error, span: Span) -> ShellError {
@@ -15,6 +15,52 @@ fn from_csv_error(err: csv::Error, span: Span) -> ShellError {
 struct DelimitedResult {
     stream: ListStream,
     schema: Option<TableSchema>,
+}
+
+/// Collect a ListStream into a Value::Table when schema is known
+fn collect_into_table(
+    stream: ListStream,
+    schema: TableSchema,
+    span: Span,
+) -> Result<Value, ShellError> {
+    let mut table = TableData::new(schema);
+    let num_columns = table.num_columns();
+
+    for value in stream {
+        // Extract values from the record in column order
+        if let Value::Record { val: record, .. } = value {
+            // Optimization: CSV parser creates records with values in header order,
+            // so if column counts match, we can take values directly (O(n) vs O(n²))
+            let row_values: Vec<Value> = if record.len() == num_columns {
+                // Fast path: take values in order (assumes same column order as schema)
+                record.into_owned().into_iter().map(|(_, v)| v).collect()
+            } else {
+                // Slow path: lookup by column name (handles missing/extra columns)
+                table
+                    .columns()
+                    .iter()
+                    .map(|col| {
+                        record
+                            .get(col)
+                            .cloned()
+                            .unwrap_or_else(|| Value::nothing(span))
+                    })
+                    .collect()
+            };
+            table
+                .push_row(row_values)
+                .map_err(|e| ShellError::GenericError {
+                    error: "Failed to build table".into(),
+                    msg: e.to_string(),
+                    span: Some(span),
+                    help: None,
+                    inner: vec![],
+                })?;
+        } else if let Value::Error { error, .. } = value {
+            return Err(error.as_ref().clone());
+        }
+    }
+    Ok(Value::table(table, span))
 }
 
 fn from_delimited_stream(
@@ -117,6 +163,9 @@ pub(super) fn from_delimited_data(
 ) -> Result<PipelineData, ShellError> {
     let base_metadata = input.metadata().map(|md| md.with_content_type(None));
 
+    // Determine if we can produce a Table (has headers and not flexible)
+    let can_produce_table = !config.noheaders && !config.flexible;
+
     // Helper to merge schema into metadata
     let with_schema = |schema: Option<TableSchema>| -> Option<PipelineMetadata> {
         match (base_metadata.clone(), schema) {
@@ -134,6 +183,15 @@ pub(super) fn from_delimited_data(
             let string = value.into_string()?;
             let byte_stream = ByteStream::read_string(string, name, Signals::empty());
             let result = from_delimited_stream(config, byte_stream, name)?;
+
+            // For Value inputs (typically small data), collect into Table when possible
+            if can_produce_table {
+                if let Some(schema) = result.schema {
+                    let table = collect_into_table(result.stream, schema, name)?;
+                    return Ok(table.into_pipeline_data_with_metadata(base_metadata));
+                }
+            }
+
             Ok(PipelineData::list_stream(
                 result.stream,
                 with_schema(result.schema),
@@ -147,6 +205,8 @@ pub(super) fn from_delimited_data(
         }),
         PipelineData::ByteStream(byte_stream, ..) => {
             let result = from_delimited_stream(config, byte_stream, name)?;
+            // For ByteStream inputs (potentially large files), keep streaming
+            // but set schema in metadata for downstream commands
             Ok(PipelineData::list_stream(
                 result.stream,
                 with_schema(result.schema),

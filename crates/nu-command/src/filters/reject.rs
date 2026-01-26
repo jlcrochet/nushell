@@ -271,6 +271,25 @@ fn reject(
             Ok(result)
         }
 
+        PipelineData::Value(Value::Table { val, .. }, ..) if !has_integer_path_member => {
+            let input_span = val.rows().first().map(|r| r.first().map(|v| v.span()).unwrap_or(span)).unwrap_or(span);
+            let result = val
+                .into_owned()
+                .into_iter()
+                .map(move |record| {
+                    let mut value = Value::record(record, input_span);
+                    for cell_path in new_columns.iter() {
+                        if let Err(error) = value.remove_data_at_cell_path(&cell_path.members) {
+                            return Value::error(error, input_span);
+                        }
+                    }
+                    value
+                })
+                .into_pipeline_data(span, engine_state.signals().clone());
+
+            Ok(result)
+        }
+
         input => {
             let mut val = input.into_value(span)?;
 

@@ -178,6 +178,7 @@ fn upsert(
 
     match input {
         PipelineData::Value(mut value, metadata) => {
+            let value_span = value.span();
             if let Value::Closure { val, .. } = replacement {
                 match (cell_path.members.first(), &mut value) {
                     (Some(PathMember::String { .. }), Value::List { vals, .. }) => {
@@ -191,6 +192,26 @@ fn upsert(
                                 false,
                             )?;
                         }
+                    }
+                    (Some(PathMember::String { .. }), Value::Table { val: table, .. }) => {
+                        let mut closure = ClosureEval::new(engine_state, stack, *val);
+                        // Convert table to list, upsert into each row
+                        let mut vals: Vec<Value> = table
+                            .clone()
+                            .into_owned()
+                            .into_iter()
+                            .map(|record| Value::record(record, value_span))
+                            .collect();
+                        for val in &mut vals {
+                            upsert_value_by_closure(
+                                val,
+                                &mut closure,
+                                head,
+                                &cell_path.members,
+                                false,
+                            )?;
+                        }
+                        value = Value::list(vals, value_span);
                     }
                     (first, _) => {
                         upsert_single_value_by_closure(

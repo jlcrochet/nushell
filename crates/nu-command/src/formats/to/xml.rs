@@ -338,6 +338,15 @@ impl Job {
 
             let content = match content {
                 Value::List { vals, .. } => vals,
+                Value::Table {
+                    val,
+                    internal_span,
+                    ..
+                } => val
+                    .into_owned()
+                    .into_iter()
+                    .map(|record| Value::record(record, internal_span))
+                    .collect(),
                 Value::Nothing { .. } => Vec::new(),
                 _ => {
                     return Err(ShellError::CantConvert {

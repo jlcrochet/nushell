@@ -733,6 +733,90 @@ fn eval_instruction<D: DebugContext>(
             );
             Ok(Continue)
         }
+        Instruction::TableSetSchema { src_dst, columns } => {
+            let table_value = ctx.collect_reg(*src_dst, *span)?;
+            let columns_value = ctx.collect_reg(*columns, *span)?;
+            let table_span = table_value.span();
+
+            // Extract the TableData from the Value
+            let table = match table_value {
+                Value::Table { val, .. } => val,
+                _ => {
+                    return Err(ShellError::GenericError {
+                        error: "Expected table value".into(),
+                        msg: "not a table".into(),
+                        span: Some(table_span),
+                        help: None,
+                        inner: vec![],
+                    })
+                }
+            };
+
+            // Extract column names from the list
+            let columns_list = columns_value.into_list()?;
+            let mut column_names = Vec::with_capacity(columns_list.len());
+            for col in columns_list {
+                column_names.push(col.coerce_into_string()?);
+            }
+
+            // Set the schema on the table
+            let mut table = table.into_owned();
+            if let Err(e) = table.set_schema(column_names.into()) {
+                return Err(ShellError::GenericError {
+                    error: "Failed to set table schema".into(),
+                    msg: format!("{e}"),
+                    span: Some(table_span),
+                    help: None,
+                    inner: vec![],
+                });
+            }
+
+            ctx.put_reg(
+                *src_dst,
+                PipelineExecutionData::from(Value::table(table, table_span).into_pipeline_data()),
+            );
+            Ok(Continue)
+        }
+        Instruction::TablePushRow { src_dst, values } => {
+            let table_value = ctx.collect_reg(*src_dst, *span)?;
+            let values_value = ctx.collect_reg(*values, *span)?;
+            let table_span = table_value.span();
+
+            // Extract the TableData from the Value
+            let table = match table_value {
+                Value::Table { val, .. } => val,
+                _ => {
+                    return Err(ShellError::GenericError {
+                        error: "Expected table value".into(),
+                        msg: "not a table".into(),
+                        span: Some(table_span),
+                        help: None,
+                        inner: vec![],
+                    })
+                }
+            };
+
+            // Extract row values from the list
+            let row_values = values_value.into_list()?;
+
+            // Push the row to the table
+            let mut table = table.into_owned();
+            if let Err(e) = table.push_row(row_values) {
+                return Err(ShellError::GenericError {
+                    error: "Failed to push row to table".into(),
+                    msg: format!("{e}"),
+                    span: Some(table_span),
+                    help: None,
+                    inner: vec![],
+                });
+            }
+
+            ctx.put_reg(
+                *src_dst,
+                PipelineExecutionData::from(Value::table(table, table_span).into_pipeline_data()),
+            );
+            Ok(Continue)
+        }
         Instruction::Not { src_dst } => {
             let bool = ctx.collect_reg(*src_dst, *span)?;
             let negated = !bool.as_bool()?;
@@ -961,6 +1045,10 @@ fn literal_value(
         }
         Literal::List { capacity } => Value::list(Vec::with_capacity(*capacity), span),
         Literal::Record { capacity } => Value::record(Record::with_capacity(*capacity), span),
+        Literal::Table { capacity } => Value::table(
+            nu_protocol::TableData::with_capacity(Default::default(), *capacity),
+            span,
+        ),
         Literal::Filepath {
             val: path,
             no_expand,

@@ -304,6 +304,9 @@ impl std::fmt::Debug for DebuggableValue<'_> {
                 }
                 write!(f, "]")
             }
+            Value::Table { val, .. } => {
+                write!(f, "Table({} rows x {} cols)", val.len(), val.num_columns())
+            }
             Value::Closure { val, .. } => {
                 write!(f, "Closure({val:?})")
             }

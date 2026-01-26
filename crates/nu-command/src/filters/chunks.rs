@@ -126,6 +126,17 @@ pub fn chunks(
             let stream = ListStream::new(chunks, span, engine_state.signals().clone());
             Ok(PipelineData::list_stream(stream, metadata))
         }
+        PipelineData::Value(Value::Table { val, .. }, metadata) => {
+            // Convert table rows to record values and chunk them
+            let vals: Vec<Value> = val
+                .into_owned()
+                .into_iter()
+                .map(|record| Value::record(record, span))
+                .collect();
+            let chunks = ChunksIter::new(vals, chunk_size, span);
+            let stream = ListStream::new(chunks, span, engine_state.signals().clone());
+            Ok(PipelineData::list_stream(stream, metadata))
+        }
         PipelineData::ListStream(stream, metadata) => {
             let stream = stream.modify(|iter| ChunksIter::new(iter, chunk_size, span));
             Ok(PipelineData::list_stream(stream, metadata))

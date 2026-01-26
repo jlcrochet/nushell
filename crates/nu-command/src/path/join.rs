@@ -187,6 +187,15 @@ fn handle_value(v: Value, args: &Arguments, head: Span) -> Value {
         Value::String { ref val, .. } => join_single(Path::new(val), head, args),
         Value::Record { val, .. } => join_record(&val, head, span, args),
         Value::List { vals, .. } => join_list(&vals, head, span, args),
+        Value::Table { val, .. } => {
+            // Convert table to list of records
+            let vals: Vec<Value> = val
+                .into_owned()
+                .into_iter()
+                .map(|record| Value::record(record, span))
+                .collect();
+            join_list(&vals, head, span, args)
+        }
 
         _ => super::handle_invalid_values(v, head),
     }

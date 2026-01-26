@@ -40,6 +40,11 @@ impl TableSchema {
         &self.columns
     }
 
+    /// Consume the schema and return the column names.
+    pub fn into_columns(self) -> Arc<[String]> {
+        self.columns
+    }
+
     /// Get the number of columns.
     pub fn len(&self) -> usize {
         self.columns.len()

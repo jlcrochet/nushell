@@ -123,6 +123,21 @@ fn drop_cols(
                     }
                     Ok(Value::list(vals, span).into_pipeline_data_with_metadata(metadata))
                 }
+                Value::Table { val: table, .. } => {
+                    // Convert table to list of records and drop columns from each
+                    let mut vals: Vec<Value> = table
+                        .into_owned()
+                        .into_iter()
+                        .map(|record| Value::record(record, span))
+                        .collect();
+                    if let Some((first, rest)) = vals.split_first_mut() {
+                        let drop_cols = drop_cols_set(first, head, columns)?;
+                        for val in rest {
+                            drop_record_cols(val, head, &drop_cols)?
+                        }
+                    }
+                    Ok(Value::list(vals, span).into_pipeline_data_with_metadata(metadata))
+                }
                 Value::Record {
                     val: ref mut record,
                     ..

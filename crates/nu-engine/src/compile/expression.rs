@@ -256,43 +256,64 @@ pub(crate) fn compile_expression(
             Ok(())
         }
         Expr::Table(table) => {
+            // Create an empty table with capacity for the rows
             lit(
                 builder,
-                Literal::List {
+                Literal::Table {
                     capacity: table.rows.len(),
                 },
             )?;
 
-            // Evaluate the columns
-            let column_registers = table
-                .columns
-                .iter()
-                .map(|column| {
-                    let reg = builder.next_register()?;
-                    compile_expression(
-                        working_set,
-                        builder,
-                        column,
-                        RedirectModes::value(column.span),
-                        None,
-                        reg,
-                    )?;
-                    Ok(reg)
-                })
-                .collect::<Result<Vec<RegId>, CompileError>>()?;
+            // Evaluate the column expressions and build a list of column names
+            let columns_reg = builder.next_register()?;
+            builder.load_literal(
+                columns_reg,
+                Literal::List {
+                    capacity: table.columns.len(),
+                }
+                .into_spanned(expr.span),
+            )?;
 
-            // Build records for each row
+            for column in table.columns.iter() {
+                let col_reg = builder.next_register()?;
+                compile_expression(
+                    working_set,
+                    builder,
+                    column,
+                    RedirectModes::value(column.span),
+                    None,
+                    col_reg,
+                )?;
+                builder.push(
+                    Instruction::ListPush {
+                        src_dst: columns_reg,
+                        item: col_reg,
+                    }
+                    .into_spanned(column.span),
+                )?;
+            }
+
+            // Set the schema on the table
+            builder.push(
+                Instruction::TableSetSchema {
+                    src_dst: out_reg,
+                    columns: columns_reg,
+                }
+                .into_spanned(expr.span),
+            )?;
+
+            // For each row, build a list of values and push to table
             for row in table.rows.iter() {
                 let row_reg = builder.next_register()?;
                 builder.load_literal(
                     row_reg,
-                    Literal::Record {
+                    Literal::List {
                         capacity: table.columns.len(),
                     }
                     .into_spanned(expr.span),
                 )?;
-                for (column_reg, item) in column_registers.iter().zip(row.iter()) {
-                    let column_reg = builder.clone_reg(*column_reg, item.span)?;
+
+                for item in row.iter() {
                     let item_reg = builder.next_register()?;
                     compile_expression(
                         working_set,
@@ -303,26 +324,21 @@ pub(crate) fn compile_expression(
                         item_reg,
                     )?;
                     builder.push(
-                        Instruction::RecordInsert {
+                        Instruction::ListPush {
                             src_dst: row_reg,
-                            key: column_reg,
-                            val: item_reg,
+                            item: item_reg,
                         }
                         .into_spanned(item.span),
                     )?;
                 }
+
                 builder.push(
-                    Instruction::ListPush {
+                    Instruction::TablePushRow {
                         src_dst: out_reg,
-                        item: row_reg,
+                        values: row_reg,
                     }
                     .into_spanned(expr.span),
                 )?;
-            }
-
-            // Free the column registers, since they aren't needed anymore
-            for reg in column_registers {
-                builder.drop_reg(reg)?;
             }
 
             Ok(())

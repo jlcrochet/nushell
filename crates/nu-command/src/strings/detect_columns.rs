@@ -325,6 +325,17 @@ fn detect_columns(
             {
                 return Ok(val.into_pipeline_data());
             }
+            // Table type passes through as a list of records
+            if let Value::Table { val: table, .. } = &val {
+                let span = val.span();
+                let vals: Vec<Value> = table
+                    .clone()
+                    .into_owned()
+                    .into_iter()
+                    .map(|record| Value::record(record, span))
+                    .collect();
+                return Ok(Value::list(vals, span).into_pipeline_data());
+            }
             // Otherwise, coerce to string for parsing
             let input_str = val.coerce_str()?.to_string();
             process_string_input(input_str, args, name_span, input_span)

@@ -626,6 +626,21 @@ fn value_should_be_printed(
         Value::List { vals, .. } => vals
             .iter()
             .any(|item| value_should_be_printed(pattern, item, &[], config)),
+        Value::Table { val: table, .. } => {
+            let col_select = !columns_to_search.is_empty();
+            table.rows().iter().any(|row| {
+                row.iter().enumerate().any(|(idx, cell)| {
+                    if col_select {
+                        if let Some(col_name) = table.columns().get(idx) {
+                            if !columns_to_search.contains(col_name) {
+                                return false;
+                            }
+                        }
+                    }
+                    value_should_be_printed(pattern, cell, &[], config)
+                })
+            })
+        }
         Value::Record { val: record, .. } => {
             let col_select = !columns_to_search.is_empty();
             record.iter().any(|(col, val)| {

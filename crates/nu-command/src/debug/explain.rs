@@ -266,6 +266,11 @@ pub fn debug_string_without_formatting(engine_state: &EngineState, value: &Value
                 .collect::<Vec<_>>()
                 .join(" ")
         ),
+        Value::Table { val, .. } => format!(
+            "[table {} rows x {} cols]",
+            val.len(),
+            val.num_columns()
+        ),
         Value::Record { val, .. } => format!(
             "{{{}}}",
             val.iter()

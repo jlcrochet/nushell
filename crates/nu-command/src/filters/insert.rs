@@ -151,6 +151,7 @@ fn insert(
         PipelineData::Value(Value::Error { error, .. }, ..) => Err(error.as_ref().clone()),
         PipelineData::Value(mut value, metadata) => {
             if let Value::Closure { val, .. } = replacement {
+                let value_span = value.span();
                 match (cell_path.members.first(), &mut value) {
                     (Some(PathMember::String { .. }), Value::List { vals, .. }) => {
                         let mut closure = ClosureEval::new(engine_state, stack, *val);
@@ -163,6 +164,26 @@ fn insert(
                                 false,
                             )?;
                         }
+                    }
+                    (Some(PathMember::String { .. }), Value::Table { val: table, .. }) => {
+                        let mut closure = ClosureEval::new(engine_state, stack, *val);
+                        // Convert table to list, insert into each row, then convert back
+                        let mut vals: Vec<Value> = table
+                            .clone()
+                            .into_owned()
+                            .into_iter()
+                            .map(|record| Value::record(record, value_span))
+                            .collect();
+                        for val in &mut vals {
+                            insert_value_by_closure(
+                                val,
+                                &mut closure,
+                                head,
+                                &cell_path.members,
+                                false,
+                            )?;
+                        }
+                        value = Value::list(vals, value_span);
                     }
                     (first, _) => {
                         insert_single_value_by_closure(

@@ -107,7 +107,8 @@ pub fn to_delimited_data(
     // Check to ensure the input is likely one of our supported types first. We can't check a stream
     // without consuming it though
     match input {
-        PipelineData::Value(Value::List { .. } | Value::Record { .. }, _) => (),
+        PipelineData::Value(Value::List { .. } | Value::Record { .. } | Value::Table { .. }, _) => {
+        }
         PipelineData::Value(Value::Error { error, .. }, _) => return Err(error.as_ref().clone()),
         PipelineData::Value(other, _) => {
             return Err(make_unsupported_input_error(other.get_type(), head, span));
@@ -130,6 +131,7 @@ pub fn to_delimited_data(
             let columns = match &value {
                 Value::List { vals, .. } => merge_descriptors(vals),
                 Value::Record { val, .. } => val.columns().cloned().collect(),
+                Value::Table { val, .. } => val.columns().iter().cloned().collect(),
                 _ => return Err(make_unsupported_input_error(value.get_type(), head, span)),
             };
             input = PipelineData::value(value, metadata.clone());

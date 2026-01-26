@@ -147,6 +147,19 @@ fn values(
                         .into_pipeline_data_with_metadata(head, signals, metadata)),
                     Err(err) => Err(err),
                 },
+                Value::Table { val: table, .. } => {
+                    // Convert table rows to records and process like a list
+                    let vals: Vec<Value> = table
+                        .iter()
+                        .map(|record| Value::record(record, span))
+                        .collect();
+                    match get_values(&vals, head, span) {
+                        Ok(cols) => Ok(cols
+                            .into_iter()
+                            .into_pipeline_data_with_metadata(head, signals, metadata)),
+                        Err(err) => Err(err),
+                    }
+                }
                 Value::Custom { val, .. } => {
                     let input_as_base_value = val.to_base_value(span)?;
                     match get_values(&[input_as_base_value], head, span) {
